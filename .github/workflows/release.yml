@@ -1,9 +1,12 @@
-# Builds the Windows installer and publishes a GitHub release whenever a version tag (like v1.0.2) is pushed.
+# Builds the Windows installer and publishes a GitHub release (tagged v<version>) whenever the version
+# in package.json changes on main. It can also be started by hand from the Actions tab.
 # Installed copies of Referensys see the new release and update themselves.
 name: Release
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths: ['package.json', '.github/workflows/release.yml']
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
