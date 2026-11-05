@@ -109,6 +109,8 @@ body.recording .stage{align-items:flex-start}
 .empty h2{margin:0 0 10px;font-size:17px;text-wrap:balance}
 .empty ol{margin:0 0 14px;padding-left:20px}
 .empty li{margin:6px 0}
+.empty{display:flex;flex-direction:column;gap:12px}.empty ol{margin:0}
+.trylink{border:0;background:none;color:var(--accent);font-weight:600;padding:0;cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:3px}
 
 .tabs{display:flex;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:1}
 .tab{flex:1;padding:11px;border:0;background:none;cursor:pointer;font-weight:600;color:var(--muted);border-bottom:2px solid transparent}
@@ -131,7 +133,7 @@ body.recording .stage{align-items:flex-start}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:9px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:calc(100vw - 32px)}
 #toast.show{opacity:1}
 
-/* ---------- practice pharmacy app ---------- */
+/* ---------- sample app (fake data) ---------- */
 #simWrap{width:100%;max-width:1040px}
 #simWrap.off{position:fixed;left:-12000px;top:0;width:1000px;max-width:none}
 .simHint{display:flex;gap:10px;align-items:center;margin:0 0 10px;font-size:13px;color:var(--muted)}
@@ -170,7 +172,6 @@ body.recording .stage{align-items:flex-start}
 .s-status.v{background:#d1fadf;color:#05603a}
 .s-prof{display:grid;grid-template-columns:repeat(4,auto);gap:4px 22px;justify-content:start;background:var(--s-panel);border:1px solid var(--s-line);border-radius:8px;padding:12px 14px;margin-bottom:14px}
 .s-prof .k{font-size:11.5px;color:var(--s-muted)}
-.s-allergy{color:#b42318;font-weight:600}
 .s-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;background:var(--s-panel);border:1px solid var(--s-line);border-radius:8px;padding:16px}
 .s-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--s-muted)}
 .s-form input[type=text],.s-form textarea{border:1px solid var(--s-line);border-radius:6px;padding:7px 10px;font:inherit;color:var(--s-ink);background:#fff}
@@ -188,7 +189,7 @@ body.recording .stage{align-items:flex-start}
   .steps,.side{border:0;overflow:visible}.steps{border-bottom:1px solid var(--line)}.side{border-top:1px solid var(--line)}
   #stepList{flex-direction:row;overflow-x:auto;scroll-snap-type:x proximity;gap:6px}.step{min-width:240px;max-width:280px;scroll-snap-align:start}
   .tools{position:sticky;top:0;z-index:3}
-  #cv{max-height:60vh}#sim{grid-template-columns:1fr;grid-template-rows:46px auto 1fr;height:auto;min-height:600px}.s-top{grid-column:1}.s-nav{flex-direction:row;overflow-x:auto}.s-cards{grid-template-columns:1fr}.s-search{width:100%}.s-form{grid-template-columns:1fr}.s-form .full{grid-column:1}.s-prof{grid-template-columns:repeat(2,auto)}
+  #cv{max-height:60vh}#sim{grid-template-columns:1fr;grid-template-rows:46px auto 1fr;height:auto;min-height:600px}.s-top{grid-column:1}.s-nav{flex-direction:row;overflow-x:auto}.s-cards{grid-template-columns:1fr}.s-search{width:100%}.s-form{grid-template-columns:1fr}.s-form .full{grid-column:1}.s-prof{grid-template-columns:repeat(4,auto);gap:4px 14px;overflow-x:auto}
   .s-box{overflow-x:auto}.s-table{min-width:460px}}
 /* Phone-sized: header buttons share the width, tool bar scrolls sideways, bigger tap targets */
 @media (max-width:640px){
@@ -203,7 +204,7 @@ body.recording .stage{align-items:flex-start}
   .pane{padding:12px}.pane input:not([type=checkbox]),.pane textarea{font-size:16px}
   .modal{padding:18px}.modal .row{flex-direction:column-reverse}.modal .row .btn{width:100%}
   .empty{padding:18px}
-  #simWrap{max-width:none}.s-main{padding:14px}.s-cards{gap:8px}.s-prof{grid-template-columns:1fr 1fr}}
+  #simWrap{max-width:none}.s-main{padding:14px}.s-cards{gap:8px}.s-prof{grid-template-columns:repeat(4,auto);gap:4px 12px}}
 /* Touch screens have no hover, so always show each step's move/delete buttons and make them easier to tap */
 @media (hover:none){.ctl{display:flex}.ctl button{width:34px;height:30px}}
 .menu .opt{flex-direction:row;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);padding:10px 12px;border-top:1px solid var(--line);margin-top:4px;cursor:pointer}
@@ -221,8 +222,8 @@ body.recording .stage{align-items:flex-start}
   <div class="wrapRec">
     <button class="btn rec" id="btnRec" aria-haspopup="true" aria-expanded="false">● Record</button>
     <div class="menu" id="recMenu" hidden>
-      <button id="recNative" hidden><b>My screen: every click</b><span>Use any app as normal. Every click becomes a step with a screenshot, a click marker and a written title.</span></button>
-      <button id="recSim"><b>Practice pharmacy</b><span>Every click becomes a step with a screenshot, a click marker and a written title. Uses fake patients.</span></button>
+      <button id="recNative" hidden><b>My screen</b><span>Use any program as normal. Every click becomes a step with a screenshot, a click marker and a written title.</span></button>
+      <button id="recSim"><b>Sample app</b><span>Practice recording on a built-in app with fake data. Every click becomes a step.</span></button>
       <button id="recScreen"><b>Another app or window</b><span>Records any web or desktop app. Needs the downloaded copy opened in Chrome or Edge.</span></button>
       <label class="opt" id="optWrap" hidden><input type="checkbox" id="optText" checked> Use button and field names in step titles</label>
     </div>
@@ -265,12 +266,13 @@ body.recording .stage{align-items:flex-start}
       <div class="empty" id="empty" hidden>
         <h2>Record a procedure</h2>
         <ol>
-          <li>Click <b>Record</b> and choose <b>Practice pharmacy</b>.</li>
-          <li>Work through a task. Every click and every field you fill in becomes a step.</li>
-          <li>Click <b>Done</b>. On each step, drag <b>Redact</b> boxes over patient details, edit the wording and tick the PHI check.</li>
-          <li><b>Export PDF</b> for trainees.</li>
+          <li>Click <b>Record</b> and choose <b>My screen</b>.</li>
+          <li>Do the task as you normally would, in any program. Each click becomes a step.</li>
+          <li>Click <b>Done</b>. Drag <b>Redact</b> boxes over personal details, check each step's wording, then tick the privacy check.</li>
+          <li><b>Export PDF</b> to share with trainees, and <b>Save</b> to keep a copy you can reopen and edit later.</li>
         </ol>
-        <button class="btn rec" id="btnEmptyRec">● Record the practice pharmacy</button>
+        <div><button class="btn rec" id="btnEmptyRec">● Record</button></div>
+        <button class="trylink" id="btnTrySample">New to Referensys? Practice on the sample app (fake data)</button>
       </div>
       <div id="simWrap" hidden>
         <p class="simHint">Use this like the real system. Every click is saved as a step on the left.</p>
@@ -282,12 +284,12 @@ body.recording .stage{align-items:flex-start}
     <div class="tabs"><button class="tab on" data-tab="step">Step</button><button class="tab" data-tab="doc">Document</button></div>
     <div class="pane" id="pane-step">
       <div class="steplabel" id="stepLabel">No step selected</div>
-      <label>Step title<input id="fTitle" placeholder="e.g. Open the patient profile"></label>
-      <div class="autoNote" id="autoNote" hidden>Title written automatically from what you clicked. Edit as needed.</div>
+      <label>Step title<input id="fTitle" placeholder="e.g. Open the contact record"></label>
+      <div class="autoNote" id="autoNote" hidden>Written automatically from what you clicked. Edit as needed.</div>
       <label>Instructions<textarea id="fText" rows="5" placeholder="What the trainee should do, and why"></textarea></label>
       <label>Caution or note (optional)<textarea id="fCaution" rows="2" placeholder="e.g. Confirm a second identifier before continuing"></textarea></label>
-      <label class="check" id="checkWrap"><input type="checkbox" id="fReviewed"> I checked this screenshot and every patient identifier is covered.</label>
-      <p class="hint">Cover names, DOB, MRN, Rx numbers, addresses, phone numbers, facility and room numbers, and allergies. <b>Redact</b> (solid black) is the safest. The orange ring shows trainees where to click.</p>
+      <label class="check" id="checkWrap"><input type="checkbox" id="fReviewed"> I checked this step. Personal details are covered in the screenshot and left out of the title and instructions.</label>
+      <p class="hint">Cover names, dates of birth, ID and account numbers, addresses, phone numbers, email addresses and anything else that identifies a person. <b>Redact</b> (solid black) is the safest. The orange ring shows trainees where to click.</p>
     </div>
     <div class="pane" id="pane-doc" hidden>
       <label>SOP title<input id="m-title" data-k="title" placeholder="e.g. Processing a new admission order"></label>
@@ -323,7 +325,7 @@ function info(title,msg){return new Promise(res=>{const s=document.createElement
   s.onclick=e=>{if(e.target.closest('[data-r]')||e.target===s){s.remove();res()}};document.body.appendChild(s)})}
 
 function cur(){return state.steps[state.sel]||null}
-function newStep(c,o={}){return Object.assign({id:nextId++,img:c,w:c.width,h:c.height,boxes:[],crop:null,undo:[],title:'',text:'',caution:'',reviewed:false,auto:false,thumb:''},o)}
+function newStep(c,o={}){return Object.assign({id:nextId++,img:c,w:c.width,h:c.height,boxes:[],crop:null,undo:[],title:'',text:'',caution:'',reviewed:false,auto:false,autoText:false,thumb:''},o)}
 function addStep(c,o,quiet){const s=newStep(c,o);state.steps.push(s);state.sel=state.steps.length-1;selBox=-1;dirty=true;refreshThumb(s);
   if(!quiet){renderList(s.id);loadForm();draw();updatePip()}return s}
 
@@ -378,7 +380,7 @@ function renderList(flashId){const ol=$('#stepList');ol.innerHTML='';
   if(!state.steps.length)ol.innerHTML='<li class="listEmpty">No steps yet. Record a task and each click will appear here.</li>';
   state.steps.forEach((s,i)=>{const li=document.createElement('li');li.className='step'+(i===state.sel?' on':'')+(s.id===flashId?' new':'');
     const n=redactCount(s);
-    li.innerHTML=`<img alt="" src="${s.thumb}"><div class="meta"><span class="n">STEP ${String(i+1).padStart(2,'0')}</span><span class="t">${esc(s.title||'Untitled step')}</span><span class="chips"><span class="badge ${s.reviewed?'ok':'warn'}">${s.reviewed?'PHI checked':'Check PHI'}</span>${n?`<span class="badge ok">${n} redacted</span>`:''}</span></div><div class="ctl"><button data-a="up" title="Move up" aria-label="Move up">↑</button><button data-a="down" title="Move down" aria-label="Move down">↓</button><button data-a="del" title="Delete step" aria-label="Delete step">✕</button></div>`;
+    li.innerHTML=`<img alt="" src="${s.thumb}"><div class="meta"><span class="n">STEP ${String(i+1).padStart(2,'0')}</span><span class="t">${esc(s.title||'Untitled step')}</span><span class="chips"><span class="badge ${s.reviewed?'ok':'warn'}">${s.reviewed?'Privacy checked':'Check privacy'}</span>${n?`<span class="badge ok">${n} redacted</span>`:''}</span></div><div class="ctl"><button data-a="up" title="Move up" aria-label="Move up">↑</button><button data-a="down" title="Move down" aria-label="Move down">↓</button><button data-a="del" title="Delete step" aria-label="Delete step">✕</button></div>`;
     li.onclick=e=>{const a=e.target.closest('button')?.dataset.a;if(a==='up')move(i,-1);else if(a==='down')move(i,1);else if(a==='del')delStep(i);else select(i)};ol.appendChild(li)});
   $('#count').textContent=state.steps.length;
   if(flashId){const el=ol.querySelector('.new');el?.scrollIntoView({block:'nearest',inline:'nearest'})}}
@@ -387,9 +389,9 @@ function move(i,d){const j=i+d;if(j<0||j>=state.steps.length)return;const a=stat
 async function delStep(i){if(!await ask('Delete this step?',`Step ${i+1} and its screenshot will be removed.`,'Delete',true))return;state.steps.splice(i,1);if(i<state.sel||state.sel>=state.steps.length)state.sel--;if(state.sel<0&&state.steps.length)state.sel=0;selBox=-1;dirty=true;renderList();loadForm();draw();updatePip()}
 function loadForm(){const s=cur();['#fTitle','#fText','#fCaution','#fReviewed'].forEach(q=>$(q).disabled=!s);
   $('#stepLabel').textContent=s?`Step ${state.sel+1} of ${state.steps.length}`:'No step selected';
-  $('#fTitle').value=s?.title||'';$('#fText').value=s?.text||'';$('#fCaution').value=s?.caution||'';$('#fReviewed').checked=!!s?.reviewed;$('#checkWrap').classList.toggle('ok',!!s?.reviewed);$('#autoNote').hidden=!s?.auto}
+  $('#fTitle').value=s?.title||'';$('#fText').value=s?.text||'';$('#fCaution').value=s?.caution||'';$('#fReviewed').checked=!!s?.reviewed;$('#checkWrap').classList.toggle('ok',!!s?.reviewed);$('#autoNote').hidden=!(s?.auto||s?.autoText)}
 $('#fTitle').oninput=e=>{const s=cur();if(s){s.title=e.target.value;s.auto=false;$('#autoNote').hidden=true;dirty=true;renderList()}};
-$('#fText').oninput=e=>{const s=cur();if(s){s.text=e.target.value;dirty=true}};
+$('#fText').oninput=e=>{const s=cur();if(s){s.text=e.target.value;s.autoText=false;$('#autoNote').hidden=!s.auto;dirty=true}};
 $('#fCaution').oninput=e=>{const s=cur();if(s){s.caution=e.target.value;dirty=true}};
 $('#fReviewed').onchange=e=>{const s=cur();if(s){s.reviewed=e.target.checked;$('#checkWrap').classList.toggle('ok',s.reviewed);dirty=true;renderList()}};
 document.querySelectorAll('[data-k]').forEach(el=>el.oninput=()=>{state.meta[el.dataset.k]=el.value;dirty=true});
@@ -398,51 +400,51 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelect
 function setExample(v){state.example=v}
 function dropExample(){if(!state.example)return;state.steps=[];state.sel=-1;state.meta=blankMeta();fillMeta();setExample(false)}
 
-/* ============ PRACTICE PHARMACY (click capture) ============ */
+/* ============ SAMPLE APP (click capture, fake data) ============ */
 const P={view:'home',pid:null,toast:'',q:'',form:{},orders:[]};
 const PATIENTS=[
-  {id:1,name:'Abbott, Harold',dob:'03/14/1938',mrn:'MR-204817',fac:'Cedar Grove SNF',room:'112B',allergy:'Penicillin',meds:[['Metoprolol tartrate 25 mg','1 tab PO BID'],['Atorvastatin 20 mg','1 tab PO at bedtime'],['Docusate 100 mg','1 cap PO daily PRN']]},
-  {id:2,name:'Delgado, Rosa',dob:'11/02/1941',mrn:'MR-311092',fac:'Cedar Grove SNF',room:'208A',allergy:'Sulfa drugs',meds:[['Levothyroxine 50 mcg','1 tab PO daily before breakfast'],['Furosemide 20 mg','1 tab PO daily'],['Potassium chloride ER 10 mEq','1 tab PO daily']]},
-  {id:3,name:'Nguyen, Thomas',dob:'07/29/1935',mrn:'MR-118455',fac:'Willow Creek ALF',room:'14',allergy:'None known',meds:[['Donepezil 10 mg','1 tab PO at bedtime'],['Amlodipine 5 mg','1 tab PO daily']]},
-  {id:4,name:'Brennan, Margaret',dob:'01/18/1944',mrn:'MR-402266',fac:'Willow Creek ALF',room:'22',allergy:'Codeine',meds:[['Metformin 500 mg','1 tab PO BID with meals'],['Lisinopril 10 mg','1 tab PO daily']]},
-  {id:5,name:'Okafor, James',dob:'09/05/1939',mrn:'MR-277310',fac:'Cedar Grove SNF',room:'305',allergy:'None known',meds:[['Apixaban 5 mg','1 tab PO BID'],['Pantoprazole 40 mg','1 tab PO daily']]}];
-function resetP(){P.view='home';P.pid=null;P.toast='';P.q='';P.form={};P.orders=[{id:901,pid:2,drug:'Furosemide 40 mg',sig:'1 tab PO daily',status:'Pending'},{id:902,pid:5,drug:'Senna 8.6 mg',sig:'2 tabs PO at bedtime',status:'Pending'}]}
+  {id:1,name:'Abbott, Harold',ref:'C-204817',email:'h.abbott@example.com',phone:'(555) 014-2290',office:'North office',hist:[['Address change','Completed Oct 12'],['Account review','Completed Sep 3']]},
+  {id:2,name:'Delgado, Rosa',ref:'C-311092',email:'rdelgado@example.com',phone:'(555) 018-7731',office:'North office',hist:[['New account','Completed Aug 21']]},
+  {id:3,name:'Nguyen, Thomas',ref:'C-118455',email:'t.nguyen@example.com',phone:'(555) 012-4408',office:'West office',hist:[['Contact update','Completed Oct 2']]},
+  {id:4,name:'Brennan, Margaret',ref:'C-402266',email:'mbrennan@example.com',phone:'(555) 016-9054',office:'West office',hist:[['Billing question','Completed Sep 28'],['Address change','Completed Jul 9']]},
+  {id:5,name:'Okafor, James',ref:'C-277310',email:'j.okafor@example.com',phone:'(555) 019-3317',office:'North office',hist:[['Account review','Completed Oct 20']]}];
+function resetP(){P.view='home';P.pid=null;P.toast='';P.q='';P.form={};P.orders=[{id:901,pid:2,type:'Address change',details:'Moving to a new suite',status:'Pending'},{id:902,pid:5,type:'Account update',details:'Add a second phone number',status:'Pending'}]}
 const pat=id=>PATIENTS.find(p=>p.id===id);
 const phi=(v,lbl)=>`<span data-phi>${esc(v)}</span>`;
 function simRender(){const sim=$('#sim');const pend=P.orders.filter(o=>o.status==='Pending').length;
   const nav=(v,l,extra='')=>`<button data-action="nav" data-view="${v}" data-label="${l}" data-where="in the left menu" class="${P.view===v||(v==='patients'&&(P.view==='profile'||P.view==='order'))?'on':''}">${l}${extra}</button>`;
   let main='';
-  if(P.view==='home'){main=`<h1>Good morning</h1><p class="s-sub">Pharmacy work queue · Tuesday</p>
-    <div class="s-cards"><div class="s-card"><div class="k">Orders to verify</div><div class="v">${pend}</div></div><div class="s-card"><div class="k">Refill requests</div><div class="v">3</div></div><div class="s-card"><div class="k">Deliveries today</div><div class="v">4</div></div></div>
-    <div class="s-box"><h2>Next up</h2><table class="s-table"><tr><th>Patient</th><th>Order</th><th>Status</th><th></th></tr>${P.orders.filter(o=>o.status==='Pending').map(o=>`<tr><td>${phi(pat(o.pid).name)}</td><td>${esc(o.drug)}</td><td><span class="s-status">Pending</span></td><td><button class="s-btn" data-action="nav" data-view="orders" data-label="Review">Review</button></td></tr>`).join('')||'<tr><td colspan="4">Nothing waiting.</td></tr>'}</table></div>`}
+  if(P.view==='home'){main=`<h1>Good morning</h1><p class="s-sub">Your work queue · Tuesday</p>
+    <div class="s-cards"><div class="s-card"><div class="k">Requests to approve</div><div class="v">${pend}</div></div><div class="s-card"><div class="k">New messages</div><div class="v">3</div></div><div class="s-card"><div class="k">Due today</div><div class="v">4</div></div></div>
+    <div class="s-box"><h2>Next up</h2><table class="s-table"><tr><th>Name</th><th>Request</th><th>Status</th><th></th></tr>${P.orders.filter(o=>o.status==='Pending').map(o=>`<tr><td>${phi(pat(o.pid).name)}</td><td>${esc(o.type)}</td><td><span class="s-status">Pending</span></td><td><button class="s-btn" data-action="nav" data-view="orders" data-label="Review">Review</button></td></tr>`).join('')||'<tr><td colspan="4">Nothing waiting.</td></tr>'}</table></div>`}
   else if(P.view==='patients'){const q=P.q.toLowerCase();const list=PATIENTS.filter(p=>!q||p.name.toLowerCase().includes(q));
-    main=`<h1>Patients</h1><p class="s-sub">${PATIENTS.length} active residents</p><div class="s-row" style="margin-bottom:12px"><input class="s-search" id="sSearch" type="text" placeholder="Search by name" data-label="Search patients" data-phi data-type-label="Type the patient's name in the search box" value="${esc(P.q)}"><button class="s-btn" data-action="search" data-label="Search">Search</button></div>
-    <div class="s-box"><table class="s-table"><tr><th>Name</th><th>DOB</th><th>Facility</th><th>Room</th></tr>${list.map(p=>`<tr data-action="open" data-id="${p.id}" data-phi-label="the patient's name in the list"><td>${phi(p.name)}</td><td>${phi(p.dob)}</td><td>${phi(p.fac)}</td><td>${phi(p.room)}</td></tr>`).join('')||'<tr><td colspan="4">No matches.</td></tr>'}</table></div>`}
+    main=`<h1>Contacts</h1><p class="s-sub">${PATIENTS.length} active contacts</p><div class="s-row" style="margin-bottom:12px"><input class="s-search" id="sSearch" type="text" placeholder="Search by name" data-label="Search contacts" data-phi data-type-label="Type the person's name in the search box" value="${esc(P.q)}"><button class="s-btn" data-action="search" data-label="Search">Search</button></div>
+    <div class="s-box"><table class="s-table"><tr><th>Name</th><th>ID</th><th>Email</th><th>Phone</th></tr>${list.map(p=>`<tr data-action="open" data-id="${p.id}" data-phi-label="the person's name in the list"><td>${phi(p.name)}</td><td>${phi(p.ref)}</td><td>${phi(p.email)}</td><td>${phi(p.phone)}</td></tr>`).join('')||'<tr><td colspan="4">No matches.</td></tr>'}</table></div>`}
   else if(P.view==='profile'){const p=pat(P.pid);
-    main=`<div class="s-row" style="justify-content:space-between;margin-bottom:10px"><h1>${phi(p.name)}</h1><div class="s-row"><button class="s-btn" data-action="nav" data-view="patients" data-label="Back to patients">Back</button><button class="s-btn pri" data-action="neworder" data-label="New order">New order</button></div></div>
-    <div class="s-prof"><div class="k">DOB</div><div class="k">MRN</div><div class="k">Facility / room</div><div class="k">Allergies</div><div>${phi(p.dob)}</div><div>${phi(p.mrn)}</div><div>${phi(p.fac+' · '+p.room)}</div><div class="s-allergy">${phi(p.allergy)}</div></div>
-    <div class="s-box"><h2>Active medications</h2><table class="s-table"><tr><th>Medication</th><th>Directions</th></tr>${p.meds.map(m=>`<tr><td>${esc(m[0])}</td><td>${esc(m[1])}</td></tr>`).join('')}</table></div>`}
+    main=`<div class="s-row" style="justify-content:space-between;margin-bottom:10px"><h1>${phi(p.name)}</h1><div class="s-row"><button class="s-btn" data-action="nav" data-view="patients" data-label="Back to contacts">Back</button><button class="s-btn pri" data-action="neworder" data-label="New request">New request</button></div></div>
+    <div class="s-prof"><div class="k">ID</div><div class="k">Email</div><div class="k">Phone</div><div class="k">Office</div><div>${phi(p.ref)}</div><div>${phi(p.email)}</div><div>${phi(p.phone)}</div><div>${esc(p.office)}</div></div>
+    <div class="s-box"><h2>Past requests</h2><table class="s-table"><tr><th>Request</th><th>Status</th></tr>${p.hist.map(m=>`<tr><td>${esc(m[0])}</td><td>${esc(m[1])}</td></tr>`).join('')}</table></div>`}
   else if(P.view==='order'){const p=pat(P.pid),f=P.form;
-    main=`<h1>New order</h1><p class="s-sub">For ${phi(p.name)} · Allergies: <span class="s-allergy">${phi(p.allergy)}</span></p>
-    <div class="s-form"><label>Drug<input type="text" id="fDrug" data-f="drug" data-label="Drug" value="${esc(f.drug||'')}" placeholder="Name and strength"></label>
-    <label>Quantity<input type="text" id="fQty" data-f="qty" data-label="Quantity" value="${esc(f.qty||'')}"></label>
-    <label class="full">Directions<input type="text" id="fSig" data-f="sig" data-label="Directions" value="${esc(f.sig||'')}" placeholder="e.g. 1 tab PO daily"></label>
-    <label>Prescriber<input type="text" id="fPresc" data-f="presc" data-label="Prescriber" value="${esc(f.presc||'')}"></label>
-    <label>Refills<input type="text" id="fRef" data-f="refills" data-label="Refills" value="${esc(f.refills||'')}"></label>
-    <label class="chk full"><input type="checkbox" id="fAll" data-f="allergy" data-label="Allergies reviewed" ${f.allergy?'checked':''}> Allergies reviewed against this order</label>
-    <div class="full s-row" style="justify-content:flex-end"><button class="s-btn" data-action="open" data-id="${p.id}" data-label="Cancel">Cancel</button><button class="s-btn pri" data-action="submit" data-label="Submit for verification">Submit for verification</button></div></div>`}
-  else if(P.view==='orders'){main=`<h1>Orders</h1><p class="s-sub">Pharmacist verification queue</p><div class="s-box"><table class="s-table"><tr><th>Patient</th><th>Order</th><th>Directions</th><th>Status</th><th></th></tr>${P.orders.map(o=>`<tr><td>${phi(pat(o.pid).name)}</td><td>${esc(o.drug)}</td><td>${esc(o.sig)}</td><td><span class="s-status ${o.status==='Verified'?'v':''}">${o.status}</span></td><td>${o.status==='Pending'?`<button class="s-btn ok" data-action="verify" data-id="${o.id}" data-label="Verify">Verify</button>`:''}</td></tr>`).join('')}</table></div>`}
-  else{main=`<h1>Refill requests</h1><p class="s-sub">From facility nurses</p><div class="s-box"><table class="s-table"><tr><th>Patient</th><th>Medication</th><th>Requested</th></tr><tr><td>${phi('Abbott, Harold')}</td><td>Atorvastatin 20 mg</td><td>Today 7:42 AM</td></tr><tr><td>${phi('Delgado, Rosa')}</td><td>Levothyroxine 50 mcg</td><td>Today 8:15 AM</td></tr><tr><td>${phi('Brennan, Margaret')}</td><td>Metformin 500 mg</td><td>Yesterday</td></tr></table></div>`}
-  sim.innerHTML=`<div class="s-top"><b>Ridgeline LTC Pharmacy</b><span class="s-demo">PRACTICE · FAKE PATIENTS</span><span class="s-user">Signed in: Pharmacist (demo)</span></div>
-  <nav class="s-nav">${nav('home','Work queue')}${nav('patients','Patients')}${nav('orders','Orders',pend?`<span class="pill">${pend}</span>`:'')}${nav('refills','Refill requests')}</nav>
+    main=`<h1>New request</h1><p class="s-sub">For ${phi(p.name)} · ${esc(p.office)}</p>
+    <div class="s-form"><label>Request type<input type="text" id="fDrug" data-f="type" data-label="Request type" value="${esc(f.type||'')}" placeholder="e.g. Address change"></label>
+    <label>Due date<input type="text" id="fQty" data-f="due" data-label="Due date" value="${esc(f.due||'')}" placeholder="e.g. Friday"></label>
+    <label class="full">Details<input type="text" id="fSig" data-f="details" data-label="Details" value="${esc(f.details||'')}" placeholder="What needs to happen"></label>
+    <label>Assigned to<input type="text" id="fPresc" data-f="owner" data-label="Assigned to" value="${esc(f.owner||'')}"></label>
+    <label>Priority<input type="text" id="fRef" data-f="priority" data-label="Priority" value="${esc(f.priority||'')}" placeholder="Normal"></label>
+    <label class="chk full"><input type="checkbox" id="fAll" data-f="confirmed" data-label="Details confirmed" ${f.confirmed?'checked':''}> Details confirmed with the contact</label>
+    <div class="full s-row" style="justify-content:flex-end"><button class="s-btn" data-action="open" data-id="${p.id}" data-label="Cancel">Cancel</button><button class="s-btn pri" data-action="submit" data-label="Submit for approval">Submit for approval</button></div></div>`}
+  else if(P.view==='orders'){main=`<h1>Approvals</h1><p class="s-sub">Requests waiting for sign-off</p><div class="s-box"><table class="s-table"><tr><th>Name</th><th>Request</th><th>Details</th><th>Status</th><th></th></tr>${P.orders.map(o=>`<tr><td>${phi(pat(o.pid).name)}</td><td>${esc(o.type)}</td><td>${esc(o.details)}</td><td><span class="s-status ${o.status==='Approved'?'v':''}">${o.status}</span></td><td>${o.status==='Pending'?`<button class="s-btn ok" data-action="verify" data-id="${o.id}" data-label="Approve">Approve</button>`:''}</td></tr>`).join('')}</table></div>`}
+  else{main=`<h1>Messages</h1><p class="s-sub">Sent in by contacts</p><div class="s-box"><table class="s-table"><tr><th>From</th><th>Subject</th><th>Received</th></tr><tr><td>${phi('Abbott, Harold')}</td><td>Question about my account</td><td>Today 7:42 AM</td></tr><tr><td>${phi('Delgado, Rosa')}</td><td>Updated mailing address</td><td>Today 8:15 AM</td></tr><tr><td>${phi('Brennan, Margaret')}</td><td>Request for a copy of records</td><td>Yesterday</td></tr></table></div>`}
+  sim.innerHTML=`<div class="s-top"><b>Sample app</b><span class="s-demo">SAMPLE · FAKE DATA</span><span class="s-user">Signed in: Demo user</span></div>
+  <nav class="s-nav">${nav('home','Work queue')}${nav('patients','Contacts')}${nav('orders','Approvals',pend?`<span class="pill">${pend}</span>`:'')}${nav('refills','Messages')}</nav>
   <div class="s-main">${main}</div>${P.toast?`<div class="s-toast">${esc(P.toast)}</div>`:''}`}
 function simAction(el){const a=el.dataset.action;P.toast='';
   if(a==='nav'){P.view=el.dataset.view}
   else if(a==='open'){P.pid=+el.dataset.id;P.view='profile';P.form={}}
   else if(a==='search'){P.q=$('#sSearch')?.value||''}
   else if(a==='neworder'){P.view='order';P.form={}}
-  else if(a==='submit'){const f=P.form;if(!f.drug){P.toast='Enter a drug before submitting'}else{P.orders.unshift({id:Date.now(),pid:P.pid,drug:f.drug,sig:f.sig||'',status:'Pending'});P.view='orders';P.toast='Order sent for verification'}}
-  else if(a==='verify'){const o=P.orders.find(o=>o.id===+el.dataset.id);if(o){o.status='Verified';P.toast='Order verified'}}
+  else if(a==='submit'){const f=P.form;if(!f.type){P.toast='Enter a request type before submitting'}else{P.orders.unshift({id:Date.now(),pid:P.pid,type:f.type,details:f.details||'',status:'Pending'});P.view='orders';P.toast='Request sent for approval'}}
+  else if(a==='verify'){const o=P.orders.find(o=>o.id===+el.dataset.id);if(o){o.status='Approved';P.toast='Request approved'}}
   simRender()}
 $('#sim').addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(el)simAction(el)});
 $('#sim').addEventListener('input',e=>{const f=e.target.dataset.f;if(f)P.form[f]=e.target.type==='checkbox'?e.target.checked:e.target.value;if(e.target.id==='sSearch')P.q=e.target.value});
@@ -460,39 +462,52 @@ function clickTitle(el){const ph=el.closest('[data-phi-label]');if(ph)return`Cli
   if(el.matches('input[type=checkbox]')||el.closest('label.chk'))return`Check “${lab}”`;
   if(el.matches('input,textarea'))return`Click the “${lab}” field`;
   return`Click “${lab}”${where?' '+where:''}`}
-function typeTitle(el){if(el.closest('[data-phi]'))return el.dataset.typeLabel||`Enter the patient's details in “${labelOf(el)}”`;
+function typeTitle(el){if(el.closest('[data-phi]'))return el.dataset.typeLabel||`Enter the person's details in “${labelOf(el)}”`;
   const v=el.value.trim();return v?`Type “${v.slice(0,50)}” in the “${labelOf(el)}” field`:`Clear the “${labelOf(el)}” field`}
+const q=v=>`“${v}”`,cap=t=>t.charAt(0).toUpperCase()+t.slice(1);
+function placeOf(el){const w=el.closest('[data-where]')?.dataset.where;if(w)return w;const h=el.closest('.s-box')?.querySelector('h2')?.textContent.trim();return h?`in the ${h} section`:''}
+function clickText(el){if(el.closest('[data-phi-label]'))return'Find the person in the list and click their name.';
+  const lab=labelOf(el)||'highlighted';const where=placeOf(el);const pre=where?cap(where)+', ':'';const v=pre?'click':'Click';
+  if(el.matches('input[type=checkbox]')||el.closest('label.chk'))return`${pre}${pre?'tick':'Tick'} the ${q(lab)} box.`;
+  if(el.matches('input,textarea'))return`${pre}${v} in the ${q(lab)} field.`;
+  return`${pre}${v} the ${q(lab)} ${el.closest('[data-where]')?'menu item':'button'}.`}
+function typeText(el){if(el.closest('[data-phi]'))return'Type the person\'s name in the search box. Check you have the right person before you continue.';
+  const v=el.value.trim();return v?`In the ${q(labelOf(el))} field, type ${q(v.slice(0,50))}.`:`Clear the ${q(labelOf(el))} field.`}
+function afterText(h0){const h=$('#sim .s-main h1');const t=P.toast;
+  if(t)return` A message confirms ${q(t)}.`;
+  if(h&&h.textContent.trim()!==h0)return h.querySelector('[data-phi]')?' Their record opens.':` The ${h.textContent.trim()} page opens.`;return''}
 function markerBox(cx,cy,s){const r=Math.round(20*s);return{type:'click',x:Math.round(cx-r),y:Math.round(cy-r),w:2*r,h:2*r}}
 async function recordClick(el,pt){const {c,s,r}=await snapSim();let x=pt.x-r.left,y=pt.y-r.top;
   if(!pt.x&&!pt.y){const b=el.getBoundingClientRect();x=b.left+b.width/2-r.left;y=b.top+b.height/2-r.top}
-  const st=addStep(c,{title:clickTitle(el),auto:true,boxes:[markerBox(x*s,y*s,s)]});
-  rec.field=el.matches('input[type=text],textarea')?{el,id:st.id}:null}
+  const st=addStep(c,{title:clickTitle(el),text:clickText(el),auto:true,autoText:true,boxes:[markerBox(x*s,y*s,s)]});
+  rec.field=el.matches('input[type=text],textarea')?{el,id:st.id}:null;return st}
 async function recordType(el){const {c,s,r}=await snapSim();const b=el.getBoundingClientRect();
   const boxes=[{type:'highlight',x:Math.round((b.left-r.left-4)*s),y:Math.round((b.top-r.top-4)*s),w:Math.round((b.width+8)*s),h:Math.round((b.height+8)*s)}];
   const last=state.steps[state.steps.length-1];
   if(rec.field&&rec.field.el===el&&last&&last.id===rec.field.id&&last.auto){
-    Object.assign(last,{img:c,w:c.width,h:c.height,title:typeTitle(el),boxes,undo:[],crop:null});refreshThumb(last);state.sel=state.steps.length-1;renderList(last.id);loadForm();draw()}
-  else addStep(c,{title:typeTitle(el),auto:true,boxes});
+    Object.assign(last,{img:c,w:c.width,h:c.height,title:typeTitle(el),boxes,undo:[],crop:null},last.autoText?{text:typeText(el)}:{});refreshThumb(last);state.sel=state.steps.length-1;renderList(last.id);loadForm();draw()}
+  else addStep(c,{title:typeTitle(el),text:typeText(el),auto:true,autoText:true,boxes});
   rec.field=null}
 $('#sim').addEventListener('click',e=>{if(!rec.on||rec.mode!=='sim'||rec.paused||!e.isTrusted)return;
   const el=e.target.closest('[data-action],button,input,textarea,label');if(!el)return;
   const pt={x:e.clientX,y:e.clientY};
   if(el.matches('input[type=text],textarea')){enqueue(()=>recordClick(el,pt));return}
   e.preventDefault();e.stopImmediatePropagation();
-  enqueue(async()=>{await recordClick(el,pt);el.click()})},true);
+  enqueue(async()=>{const h0=$('#sim .s-main h1')?.textContent.trim();const st=await recordClick(el,pt);el.click();
+    const more=afterText(h0);if(more&&st.autoText){st.text+=more;if(cur()===st)loadForm()}})},true);
 $('#sim').addEventListener('change',e=>{if(!rec.on||rec.mode!=='sim'||rec.paused)return;const el=e.target;if(el.matches('input[type=text],textarea'))enqueue(()=>recordType(el))},true);
 
 function startSim(){if(rec.on)return;dropExample();resetP();simRender();rec.on=true;rec.mode='sim';rec.paused=false;
   document.body.classList.add('recording');$('#simWrap').hidden=false;$('#recbar').hidden=false;$('#recbar').classList.remove('paused');
   $('#autoWrap').hidden=$('#btnCap').hidden=$('#btnPip').hidden=true;$('#btnPause').hidden=false;$('#btnPause').textContent='Pause';
-  $('#recLabel').textContent='Recording the practice pharmacy';$('#recStatus').textContent='Click through a task. Each click becomes a step.';
+  $('#recLabel').textContent='Recording the sample app';$('#recStatus').textContent='Click through a task. Each click becomes a step.';
   const first=state.steps.length;rec.first=first;draw()}
 async function stopSim(){$('#recStatus').textContent='Finishing the last step…';await rec.chain;rec.on=false;rec.mode=null;
   document.body.classList.remove('recording');$('#simWrap').hidden=true;$('#recbar').hidden=true;
   const n=state.steps.length-rec.first;if(n>0)select(rec.first);else{renderList();loadForm();draw()}
-  toast(n?`${n} step${n>1?'s':''} recorded. Now cover patient details on each one.`:'No steps recorded.')}
+  toast(n?`${n} step${n>1?'s':''} recorded. Now cover personal details on each one.`:'No steps recorded.')}
 function togglePause(){rec.paused=!rec.paused;$('#btnPause').textContent=rec.paused?'Resume':'Pause';$('#recbar').classList.toggle('paused',rec.paused);
-  $('#recLabel').textContent=rec.paused?'Paused':(rec.mode==='sim'?'Recording the practice pharmacy':'Recording');
+  $('#recLabel').textContent=rec.paused?'Paused':(rec.mode==='sim'?'Recording the sample app':'Recording');
   if(rec.mode==='sim')$('#recStatus').textContent=rec.paused?'Clicks are not being recorded.':'Click through a task. Each click becomes a step.';else setAuto(!rec.paused)}
 
 /* ============ OTHER WINDOW (screen-change capture) ============ */
@@ -510,7 +525,7 @@ async function captureNow(){if(!track)return;const src=await frame();if(!src)ret
 async function tick(){if(!track||!auto||busy)return;busy=true;try{const src=await frame();if(!src)return;const g=gray(src);if(src.close)src.close();
   if(prevG)stable=diff(g,prevG)<0.003?stable+1:0;prevG=g;
   if(lastG&&stable>=2&&diff(g,lastG)>0.02){await captureNow();stable=0}}finally{busy=false}}
-const blockedMsg='This test page runs inside Claude, which doesn\'t allow screen recording. Use <b>Practice pharmacy</b> here. To record other apps, open the downloaded <b>Referensys</b> in Chrome or Edge.';
+const blockedMsg='This test page runs inside Claude, which doesn\'t allow screen recording. Use the <b>Sample app</b> here. To record other apps, open the downloaded <b>Referensys</b> in Chrome or Edge.';
 async function startScreen(){if(rec.on)return;
   if(!navigator.mediaDevices?.getDisplayMedia){info('Screen recording isn\'t available here',blockedMsg);return}
   const t0=performance.now();
@@ -523,7 +538,7 @@ async function startScreen(){if(rec.on)return;
   $('#recbar').hidden=false;$('#autoWrap').hidden=$('#btnCap').hidden=$('#btnPip').hidden=false;$('#btnPause').hidden=true;
   $('#recLabel').textContent='Recording';setAuto(true);setTimeout(captureNow,700);stopTick=ticker(700,tick)}
 function stopScreen(){if(stopTick){stopTick();stopTick=null}if(stream)stream.getTracks().forEach(t=>t.stop());stream=track=icap=null;video.srcObject=null;
-  rec.on=false;rec.mode=null;$('#recbar').hidden=true;if(pip){pip.close();pip=null}const n=state.steps.length-rec.first;if(n)select(rec.first);toast(n?'Recording stopped. Now cover patient details on each step.':'No steps recorded.')}
+  rec.on=false;rec.mode=null;$('#recbar').hidden=true;if(pip){pip.close();pip=null}const n=state.steps.length-rec.first;if(n)select(rec.first);toast(n?'Recording stopped. Now cover personal details on each step.':'No steps recorded.')}
 function setAuto(v){auto=v;$('#autoT').checked=v;prevG=null;stable=0;if(rec.mode==='screen')$('#recStatus').textContent=v?'A step is saved when the screen changes and settles.':'Auto-capture paused. Use Capture now.';updatePip()}
 async function openPip(){if(!('documentPictureInPicture' in window)){toast('The floating panel needs Chrome or Edge 116 or newer.');return}if(pip)return;
   try{pip=await documentPictureInPicture.requestWindow({width:280,height:140})}catch(e){toast('Could not open the floating panel.');return}
@@ -564,7 +579,7 @@ const pdfT=s=>String(s||'').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").re
 async function exportPdf(){if(!state.steps.length){toast('Add at least one step first.');return}
   if(!window.jspdf){toast('The PDF library did not load. Check your connection and reload.');return}
   const un=state.steps.filter(s=>!s.reviewed).length;
-  if(un&&!await ask('Some steps aren\'t checked for PHI',`${un} step${un>1?'s have':' has'} not been marked as checked. Patient details could appear in the PDF.`,'Export anyway',true))return;
+  if(un&&!await ask('Some steps haven\'t had the privacy check',`${un} step${un>1?'s have':' has'} not been marked as checked. Personal details could appear in the PDF.`,'Export anyway',true))return;
   const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',format:'letter'});const W=612,H=792,M=50,IND=34,TW=W-2*M-IND;let y=M;
   const teal=[13,107,107];
   doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(...teal);doc.text('STANDARD OPERATING PROCEDURE',M,y);y+=22;
@@ -586,7 +601,7 @@ async function exportPdf(){if(!state.steps.length){toast('Add at least one step 
     doc.addImage(f.toDataURL('image/jpeg',.9),'JPEG',x,y,iw,ih);doc.setDrawColor(200,208,214);doc.setLineWidth(.6);doc.rect(x,y,iw,ih);y+=ih+30}
   const n=doc.getNumberOfPages();for(let p=1;p<=n;p++){doc.setPage(p);doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(110,120,128);
     doc.text(pdfT(`${state.meta.title||'SOP'}${state.meta.version?' · v'+state.meta.version:''}`).replace('·','-'),M,H-28);doc.text(`Page ${p} of ${n}`,W-M,H-28,{align:'right'});
-    if(p===n)doc.text('Screenshots were redacted for PHI before distribution. Generated '+new Date().toLocaleDateString()+'.',M,H-40)}
+    if(p===n)doc.text('Screenshots were redacted for privacy before distribution. Generated '+new Date().toLocaleDateString()+'.',M,H-40)}
   if(await saveBlob(doc.output('blob'),fname()+'.pdf'))toast('PDF ready.')}
 async function clearAll(){if(!state.steps.length)return;if(!state.example&&!await ask('Clear all steps?','Unsaved work will be lost.','Clear',true))return;
   state.steps=[];state.sel=-1;selBox=-1;state.meta=blankMeta();fillMeta();setExample(false);dirty=false;renderList();loadForm();draw();updatePip()}
@@ -597,7 +612,7 @@ $('#btnRec').onclick=e=>{e.stopPropagation();if(rec.on)return;toggleMenu()};
 document.addEventListener('click',e=>{if(!e.target.closest('.wrapRec'))toggleMenu(false)});
 $('#recSim').onclick=()=>{toggleMenu(false);startSim()};
 $('#recScreen').onclick=()=>{toggleMenu(false);startScreen()};
-$('#btnEmptyRec').onclick=startSim;
+$('#btnEmptyRec').onclick=e=>{e.stopPropagation();toggleMenu(true);$('#btnRec').focus()};$('#btnTrySample').onclick=startSim;
 $('#btnStop').onclick=()=>rec.mode==='sim'?stopSim():stopScreen();
 $('#btnPause').onclick=togglePause;
 $('#btnCap').onclick=()=>captureNow();$('#btnPip').onclick=openPip;$('#autoT').onchange=e=>setAuto(e.target.checked);
@@ -646,14 +661,14 @@ function nativeClick(ev){if(!rec.on||rec.mode!=='native'||rec.paused)return;
   const e=nat.videos.get(ev.displayId)||[...nat.videos.values()][0];if(!e||!e.v.videoWidth)return;
   const {v,d}=e;const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
   const sx=v.videoWidth/d.bounds.width,sy=v.videoHeight/d.bounds.height;
-  const s=addStep(c,{title:'Click here',auto:true,clickId:ev.clickId,boxes:[markerBox((ev.x-d.bounds.x)*sx,(ev.y-d.bounds.y)*sy,sx)]},true);
+  const s=addStep(c,{title:'Click here',auto:true,autoText:true,clickId:ev.clickId,boxes:[markerBox((ev.x-d.bounds.x)*sx,(ev.y-d.bounds.y)*sy,sx)]},true);
   const l=nat.labels.get(ev.clickId);if(l){applyLabel(s,l);nat.labels.delete(ev.clickId)}
   window.sop.count(state.steps.length-rec.first)}
-function applyLabel(s,l){if(s.auto&&l.title)s.title=l.title;if(l.app)s.app=l.app}
+function applyLabel(s,l){if(s.auto&&l.title)s.title=l.title;if(s.autoText&&l.text)s.text=l.text;if(l.app)s.app=l.app}
 function nativeLabel(l){const s=state.steps.find(x=>x.clickId===l.clickId);if(s){applyLabel(s,l);if(!rec.on){renderList();loadForm()}}else nat.labels.set(l.clickId,l)}
 async function stopNative(){if(rec.mode!=='native')return;rec.on=false;rec.mode=null;stopStreams();await window.sop.stopClicks();
   const n=state.steps.length-rec.first;renderList();if(n)select(rec.first);else{loadForm();draw()}
-  toast(n?`${n} step${n>1?'s':''} recorded. Now cover patient details on each one.`:'No steps recorded.')}
+  toast(n?`${n} step${n>1?'s':''} recorded. Now cover personal details on each one.`:'No steps recorded.')}
 if(NATIVE){window.sop.onClick(nativeClick);window.sop.onLabel(nativeLabel);window.sop.onStop(stopNative);window.sop.onPause(p=>{rec.paused=p});
   $('#recNative').hidden=false;$('#optWrap').hidden=false;$('#recScreen').hidden=true;$('#optText').checked=useScreenText;
   $('#optText').onchange=e=>{useScreenText=e.target.checked;try{localStorage.setItem('sop.screenText',useScreenText?'1':'0')}catch(err){}};

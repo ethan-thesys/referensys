@@ -98,8 +98,15 @@ function lookup(id, phys, useText) {
   });
 }
 const quote = s => `“${String(s).replace(/\s+/g, ' ').trim().slice(0, 60)}”`;
-function titleFor(info) {
+// Labels that look like personal details (names as "Last, First", dates, long numbers, emails) are
+// left out of titles and instructions, since those are plain text and can't be redacted like a screenshot.
+const looksPersonal = s => /\d{3,}|\d{1,2}\/\d{1,2}\/\d{2,4}|@|^[A-Z][A-Za-z'’-]+,\s*[A-Z]/.test(s);
+function parts(info) {
   const role = (info.role || '').replace('ControlType.', ''), label = (info.label || '').trim();
+  return { role, safe: label && !looksPersonal(label) ? label : '', hidden: !!label && looksPersonal(label) };
+}
+function titleFor(info) {
+  const { role, safe: label, hidden } = parts(info);
   if (label) {
     if (/^(Edit|ComboBox|Spinner)$/.test(role)) return `Click the ${quote(label)} field`;
     if (role === 'CheckBox') return `Check ${quote(label)}`;
@@ -109,8 +116,28 @@ function titleFor(info) {
     if (role === 'Hyperlink') return `Click the ${quote(label)} link`;
     return `Click ${quote(label)}`;
   }
+  if (hidden && /^(ListItem|TreeItem|DataItem)$/.test(role)) return 'Select the item in the list';
+  if (hidden) return 'Click the highlighted item';
   if (role === 'Edit') return info.app ? `Click the text field in ${info.app}` : 'Click the text field';
   return info.app ? `Click in ${info.app}` : 'Click here';
+}
+// One or two sentences for the Instructions box, written from the same details as the title.
+function instructionsFor(info) {
+  const { role, safe, hidden } = parts(info), L = safe ? quote(safe) : '';
+  let t;
+  if (/^(Edit|ComboBox|Spinner)$/.test(role)) t = L ? `click in the ${L} field.` : 'click in the text field.';
+  else if (role === 'CheckBox') t = L ? `tick the ${L} box.` : 'tick the highlighted box.';
+  else if (role === 'RadioButton') t = L ? `select the ${L} option.` : 'select the highlighted option.';
+  else if (role === 'TabItem') t = L ? `open the ${L} tab.` : 'open the highlighted tab.';
+  else if (/^(ListItem|TreeItem|DataItem)$/.test(role)) t = L ? `select ${L} in the list.` : 'select the highlighted item in the list.';
+  else if (/^(MenuItem|MenuBar)$/.test(role)) t = L ? `choose ${L} from the menu.` : 'choose the highlighted menu option.';
+  else if (role === 'SplitButton') t = L ? `open the ${L} menu.` : 'open the highlighted menu.';
+  else if (role === 'Hyperlink') t = L ? `click the ${L} link.` : 'click the highlighted link.';
+  else if (role === 'Button') t = L ? `click the ${L} button.` : 'click the highlighted button.';
+  else t = L ? `click ${L}.` : 'click the spot circled on the screenshot.';
+  t = (info.app ? `In ${info.app}, ` : '') + t;
+  t = t.charAt(0).toUpperCase() + t.slice(1);
+  return t;
 }
 
 // ---------- the click listener ----------
@@ -125,7 +152,7 @@ function onMouseDown(e) {
   win.webContents.send('rec:click', { clickId, displayId: String(d.id), x: p.x, y: p.y });
   lookup(clickId, phys, screenText).then(info => {
     if (!screenText) info.label = '';
-    if (win) win.webContents.send('rec:label', { clickId, title: titleFor(info), app: info.app || '' });
+    if (win) win.webContents.send('rec:label', { clickId, title: titleFor(info), text: instructionsFor(info), app: info.app || '' });
   });
 }
 function startHook() {
