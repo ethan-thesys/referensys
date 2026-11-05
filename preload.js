@@ -1,0 +1,23 @@
+const { contextBridge, ipcRenderer } = require('electron');
+const on = (ch, cb) => ipcRenderer.on(ch, (_e, data) => cb(data));
+
+contextBridge.exposeInMainWorld('sop', {
+  permissions: () => ipcRenderer.invoke('perm'),
+  askPermission: kind => ipcRenderer.invoke('perm:ask', kind),
+  relaunch: () => ipcRenderer.invoke('relaunch'),
+  version: () => ipcRenderer.invoke('version'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateReady: cb => on('update:ready', cb),
+  displays: () => ipcRenderer.invoke('displays'),
+  startClicks: opts => ipcRenderer.invoke('rec:start', opts),
+  stopClicks: () => ipcRenderer.invoke('rec:stop'),
+  count: n => ipcRenderer.send('rec:count', n),
+  onClick: cb => on('rec:click', cb),
+  onLabel: cb => on('rec:label', cb),
+  onStop: cb => on('rec:stop', cb),
+  onPause: cb => on('rec:pause', cb),
+  // floating panel
+  pause: () => ipcRenderer.send('panel:pause'),
+  done: () => ipcRenderer.send('panel:done'),
+  onPanelState: cb => on('panel:state', cb)
+});

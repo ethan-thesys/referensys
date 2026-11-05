@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; worker-src blob:; connect-src 'self' data: blob:; font-src 'self' data:">
+<title>Referensys</title>
+<script src="node_modules/html2canvas/dist/html2canvas.min.js"></script>
+<script src="node_modules/jspdf/dist/jspdf.umd.min.js"></script>
+<style>
+/* Layout: three-pane workbench — step rail | canvas | step details. Recording swaps the canvas for the app being recorded. */
+:root{
+  --bg:#eef2f3;--panel:#ffffff;--ink:#14212b;--muted:#5a6b78;--line:#d6dee2;
+  --accent:#0d6b6b;--accent-ink:#ffffff;--soft:#e3f1f0;
+  --rec:#d92d4a;--rec-soft:#fde8ec;--mark:#f2711c;
+  --warn:#a5560a;--warn-bg:#fff3e2;--ok:#157a3d;--ok-bg:#e5f5ea;--danger:#b42318;
+  --shadow:0 1px 2px rgba(16,40,48,.06),0 6px 22px rgba(16,40,48,.08);
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  /* practice app: deliberately looks like a separate product, same in both themes */
+  --s-bg:#f5f7fa;--s-panel:#ffffff;--s-ink:#1d2939;--s-muted:#667085;--s-line:#e4e7ec;--s-nav:#1f3a5f;--s-nav-ink:#dbe6f3;--s-blue:#2563eb;--s-green:#12b76a;--s-amber:#f79009;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1215;--panel:#141c20;--ink:#e3ebef;--muted:#90a2ad;--line:#26343b;
+  --accent:#34b3a7;--accent-ink:#031d1b;--soft:#14302d;--rec:#f2546f;--rec-soft:#3a1820;
+  --warn:#f3a63b;--warn-bg:#33250f;--ok:#4cd486;--ok-bg:#11301e;--danger:#f87171;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.35);color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1215;--panel:#141c20;--ink:#e3ebef;--muted:#90a2ad;--line:#26343b;
+  --accent:#34b3a7;--accent-ink:#031d1b;--soft:#14302d;--rec:#f2546f;--rec-soft:#3a1820;
+  --warn:#f3a63b;--warn-bg:#33250f;--ok:#4cd486;--ok-bg:#11301e;--danger:#f87171;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.35);color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;font:14px/1.45 var(--sans);background:var(--bg);color:var(--ink);display:flex;flex-direction:column;min-height:0}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;align-items:center;gap:8px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;position:relative;z-index:5}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+.logo{width:28px;height:28px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.02em}
+.brand b{font-size:16px}
+.brand small{color:var(--muted);font-size:12px}
+.btn{padding:7px 12px;border:1px solid var(--line);background:var(--panel);border-radius:8px;cursor:pointer;font-weight:550;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.rec{background:var(--rec);color:#fff;border-color:transparent}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:default}
+
+.menu{position:absolute;top:calc(100% + 4px);width:min(360px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;display:flex;flex-direction:column;gap:2px;z-index:20}
+.menu button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:0;background:none;border-radius:8px;padding:10px 12px;cursor:pointer}
+.menu button:hover{background:var(--soft)}
+.menu b{font-size:14px}
+.menu span{font-size:12.5px;color:var(--muted)}
+.wrapRec{position:relative}
+
+.recbar{display:flex;align-items:center;gap:12px;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--rec-soft);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--rec);animation:pulse 1.3s infinite}
+.paused .dot{animation:none;opacity:.4}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+.recbar .grow{margin-right:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.recbar label{display:flex;align-items:center;gap:6px}
+.muted{color:var(--muted)}
+.banner{padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--soft);border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.banner b{color:var(--accent)}
+
+main{flex:1;min-height:0;display:grid;grid-template-columns:260px minmax(0,1fr) 320px}
+body.recording main{grid-template-columns:260px minmax(0,1fr)}
+body.recording .side,body.recording .tools,body.recording #cv,body.recording #empty{display:none!important}
+.steps,.side{background:var(--panel);overflow:auto;min-height:0}
+.steps{border-right:1px solid var(--line)}
+.side{border-left:1px solid var(--line)}
+.steps-head{padding:12px 14px;font-weight:700;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--panel);z-index:1}
+.count{font:500 12px var(--mono);color:var(--muted);background:var(--bg);border-radius:99px;padding:2px 8px}
+#stepList{list-style:none;margin:0;padding:8px;display:flex;flex-direction:column;gap:2px}
+.step{display:grid;grid-template-columns:80px minmax(0,1fr);gap:10px;padding:8px;border-radius:9px;cursor:pointer;border:1px solid transparent;position:relative}
+.step:hover{background:var(--bg)}
+.step.on{border-color:var(--accent);background:var(--soft)}
+.step.new{animation:flash .9s}
+@keyframes flash{from{background:var(--rec-soft)}}
+.step img{width:80px;height:52px;object-fit:cover;object-position:top left;border-radius:5px;border:1px solid var(--line);background:#fff}
+.step .meta{display:flex;flex-direction:column;min-width:0;gap:3px;font-size:12.5px}
+.step .n{font:500 11px var(--mono);color:var(--muted);letter-spacing:.04em}
+.step .t{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-weight:550;line-height:1.3}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.badge{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:99px}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.ctl{grid-column:2;display:none;gap:4px}
+.step.on .ctl{display:flex}
+.ctl button{border:1px solid var(--line);background:var(--panel);border-radius:5px;width:24px;height:22px;padding:0;cursor:pointer;font-size:12px}
+.listEmpty{padding:18px 14px;color:var(--muted);font-size:13px}
+
+.editor{display:flex;flex-direction:column;min-width:0;min-height:0}
+.tools{display:flex;gap:6px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center}
+.tool{padding:6px 10px;border:1px solid var(--line);background:var(--panel);border-radius:7px;cursor:pointer;font-weight:550;display:flex;align-items:center;gap:6px}
+.tool[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.tool kbd{font:500 10.5px var(--mono);opacity:.6}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.sep{width:1px;height:22px;background:var(--line);margin:0 2px}
+.stage{flex:1;min-height:0;min-width:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:16px}
+body.recording .stage{align-items:flex-start}
+#cv{max-width:100%;max-height:calc(100vh - 200px);box-shadow:var(--shadow);border-radius:4px;touch-action:none;cursor:crosshair;background:#fff}
+.empty{max-width:540px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 24px}
+.empty h2{margin:0 0 10px;font-size:17px;text-wrap:balance}
+.empty ol{margin:0 0 14px;padding-left:20px}
+.empty li{margin:6px 0}
+
+.tabs{display:flex;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:1}
+.tab{flex:1;padding:11px;border:0;background:none;cursor:pointer;font-weight:600;color:var(--muted);border-bottom:2px solid transparent}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.pane{padding:14px;display:flex;flex-direction:column;gap:12px}
+.pane label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:12.5px}
+.pane input:not([type=checkbox]),.pane textarea{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--bg);font-weight:400;font-size:14px;resize:vertical;width:100%}
+.pane label.check{flex-direction:row;align-items:flex-start;gap:8px;font-size:13px;padding:10px;border-radius:8px;background:var(--warn-bg);color:var(--ink)}
+.pane label.check.ok{background:var(--ok-bg)}
+.steplabel{font:500 12px var(--mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.autoNote{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+
+/* modal + toast */
+.scrim{position:fixed;inset:0;background:rgba(8,18,22,.45);display:grid;place-items:center;z-index:50;padding:16px}
+.modal{background:var(--panel);border-radius:14px;box-shadow:var(--shadow);max-width:440px;width:100%;padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.modal h3{margin:0;font-size:16px}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;justify-content:flex-end;gap:8px}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:9px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:calc(100vw - 32px)}
+#toast.show{opacity:1}
+
+/* ---------- practice pharmacy app ---------- */
+#simWrap{width:100%;max-width:1040px}
+#simWrap.off{position:fixed;left:-12000px;top:0;width:1000px;max-width:none}
+.simHint{display:flex;gap:10px;align-items:center;margin:0 0 10px;font-size:13px;color:var(--muted)}
+#sim{height:600px;display:grid;grid-template-columns:190px 1fr;grid-template-rows:46px 1fr;background:var(--s-bg);color:var(--s-ink);border:1px solid var(--s-line);border-radius:10px;overflow:hidden;font:13.5px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;box-shadow:var(--shadow);position:relative}
+#sim *{box-sizing:border-box}
+.s-top{grid-column:1/3;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--s-panel);border-bottom:1px solid var(--s-line)}
+.s-top b{color:var(--s-nav);font-size:14.5px}
+.s-demo{font-size:10.5px;font-weight:700;background:#fef0c7;color:#93370d;padding:2px 7px;border-radius:4px;letter-spacing:.04em}
+.s-user{margin-left:auto;color:var(--s-muted);font-size:12.5px}
+.s-nav{background:var(--s-nav);padding:12px 8px;display:flex;flex-direction:column;gap:2px}
+.s-nav button{all:unset;cursor:pointer;color:var(--s-nav-ink);padding:9px 12px;border-radius:6px;font-size:13.5px;display:flex;justify-content:space-between}
+.s-nav button:hover{background:rgba(255,255,255,.08)}
+.s-nav button.on{background:rgba(255,255,255,.16);color:#fff;font-weight:600}
+.s-nav .pill{background:var(--s-amber);color:#fff;border-radius:99px;font-size:11px;padding:0 7px;font-weight:700}
+.s-main{padding:18px 22px;overflow:auto}
+.s-main h1{font-size:18px;margin:0 0 4px;color:var(--s-ink)}
+.s-sub{color:var(--s-muted);margin:0 0 14px;font-size:12.5px}
+.s-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.s-card{background:var(--s-panel);border:1px solid var(--s-line);border-radius:8px;padding:12px 14px}
+.s-card .k{font-size:12px;color:var(--s-muted)}
+.s-card .v{font-size:24px;font-weight:700;color:var(--s-ink)}
+.s-box{background:var(--s-panel);border:1px solid var(--s-line);border-radius:8px;overflow:hidden}
+.s-box h2{font-size:13.5px;margin:0;padding:10px 14px;border-bottom:1px solid var(--s-line)}
+.s-table{width:100%;border-collapse:collapse}
+.s-table th{text-align:left;font-size:11.5px;color:var(--s-muted);font-weight:600;padding:8px 14px;border-bottom:1px solid var(--s-line);background:#fafbfc}
+.s-table td{padding:9px 14px;border-bottom:1px solid var(--s-line)}
+.s-table tr[data-action]{cursor:pointer}
+.s-table tr[data-action]:hover td{background:#eff4ff}
+.s-btn{all:unset;cursor:pointer;padding:7px 12px;border-radius:6px;font-weight:600;font-size:13px;border:1px solid var(--s-line);background:var(--s-panel);color:var(--s-ink);display:inline-block}
+.s-btn.pri{background:var(--s-blue);color:#fff;border-color:var(--s-blue)}
+.s-btn.ok{background:var(--s-green);color:#fff;border-color:var(--s-green)}
+.s-btn:hover{filter:brightness(.96)}
+.s-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.s-search{border:1px solid var(--s-line);border-radius:6px;padding:7px 10px;width:280px;background:var(--s-panel);color:var(--s-ink)}
+.s-status{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;background:#fef0c7;color:#93370d}
+.s-status.v{background:#d1fadf;color:#05603a}
+.s-prof{display:grid;grid-template-columns:repeat(4,auto);gap:4px 22px;justify-content:start;background:var(--s-panel);border:1px solid var(--s-line);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.s-prof .k{font-size:11.5px;color:var(--s-muted)}
+.s-allergy{color:#b42318;font-weight:600}
+.s-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;background:var(--s-panel);border:1px solid var(--s-line);border-radius:8px;padding:16px}
+.s-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--s-muted)}
+.s-form input[type=text],.s-form textarea{border:1px solid var(--s-line);border-radius:6px;padding:7px 10px;font:inherit;color:var(--s-ink);background:#fff}
+.s-form .full{grid-column:1/3}
+.s-form .chk{flex-direction:row;align-items:center;gap:8px;color:var(--s-ink);font-weight:500;font-size:13px;cursor:pointer}
+.s-toast{position:absolute;right:16px;bottom:16px;background:#05603a;color:#fff;padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px}
+
+/* ---------- fits any screen size ---------- */
+/* Medium windows (half a monitor, small laptops): narrower side panels */
+@media (max-width:1180px){main{grid-template-columns:220px minmax(0,1fr) 280px}body.recording main{grid-template-columns:220px minmax(0,1fr)}
+  .step{grid-template-columns:64px minmax(0,1fr)}.step img{width:64px;height:44px}}
+/* Narrow windows and tablets: one column — steps strip on top, picture, then step details */
+@media (max-width:980px){main,body.recording main{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;overflow:auto}
+  html,body{height:auto}body{min-height:100%}
+  .steps,.side{border:0;overflow:visible}.steps{border-bottom:1px solid var(--line)}.side{border-top:1px solid var(--line)}
+  #stepList{flex-direction:row;overflow-x:auto;scroll-snap-type:x proximity;gap:6px}.step{min-width:240px;max-width:280px;scroll-snap-align:start}
+  .tools{position:sticky;top:0;z-index:3}
+  #cv{max-height:60vh}#sim{grid-template-columns:1fr;grid-template-rows:46px auto 1fr;height:auto;min-height:600px}.s-top{grid-column:1}.s-nav{flex-direction:row;overflow-x:auto}.s-cards{grid-template-columns:1fr}.s-search{width:100%}.s-form{grid-template-columns:1fr}.s-form .full{grid-column:1}.s-prof{grid-template-columns:repeat(2,auto)}
+  .s-box{overflow-x:auto}.s-table{min-width:460px}}
+/* Phone-sized: header buttons share the width, tool bar scrolls sideways, bigger tap targets */
+@media (max-width:640px){
+  .top{gap:6px}.brand{flex:1 0 100%;margin-right:0}.brand small{display:none}
+  .top>.wrapRec,.top>.btn{flex:1 1 30%}.top .btn,.wrapRec .btn{width:100%;padding:9px 8px}
+  .menu{left:0;width:calc(100vw - 24px)}
+  .recbar{gap:8px}.recbar .btn{flex:1 1 auto}
+  .banner{flex-direction:column;align-items:stretch}.banner .btn{width:100%}
+  .tools{flex-wrap:nowrap;overflow-x:auto;padding:8px;-webkit-overflow-scrolling:touch}.tool{flex:none;padding:8px 10px}.tool kbd{display:none}
+  .stage{padding:8px}#cv{max-height:55vh}
+  .step{min-width:min(78vw,260px)}
+  .pane{padding:12px}.pane input:not([type=checkbox]),.pane textarea{font-size:16px}
+  .modal{padding:18px}.modal .row{flex-direction:column-reverse}.modal .row .btn{width:100%}
+  .empty{padding:18px}
+  #simWrap{max-width:none}.s-main{padding:14px}.s-cards{gap:8px}.s-prof{grid-template-columns:1fr 1fr}}
+/* Touch screens have no hover, so always show each step's move/delete buttons and make them easier to tap */
+@media (hover:none){.ctl{display:flex}.ctl button{width:34px;height:30px}}
+.menu .opt{flex-direction:row;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);padding:10px 12px;border-top:1px solid var(--line);margin-top:4px;cursor:pointer}
+.perm{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.perm>div{flex:1}
+.perm span{color:var(--muted);font-size:12.5px}
+.pdot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--warn-bg);color:var(--warn);flex:none}
+.pdot.ok{background:var(--ok-bg);color:var(--ok)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><div class="logo">Re</div><div><b>Referensys</b><br><small>Screenshots stay on this device</small></div></div>
+  <div class="wrapRec">
+    <button class="btn rec" id="btnRec" aria-haspopup="true" aria-expanded="false">● Record</button>
+    <div class="menu" id="recMenu" hidden>
+      <button id="recNative" hidden><b>My screen: every click</b><span>Use any app as normal. Every click becomes a step with a screenshot, a click marker and a written title.</span></button>
+      <button id="recSim"><b>Practice pharmacy</b><span>Every click becomes a step with a screenshot, a click marker and a written title. Uses fake patients.</span></button>
+      <button id="recScreen"><b>Another app or window</b><span>Records any web or desktop app. Needs the downloaded copy opened in Chrome or Edge.</span></button>
+      <label class="opt" id="optWrap" hidden><input type="checkbox" id="optText" checked> Use button and field names in step titles</label>
+    </div>
+  </div>
+  <button class="btn" id="btnAdd">Add screenshots</button>
+  <button class="btn" id="btnOpen">Open</button>
+  <button class="btn" id="btnSave">Save</button>
+  <button class="btn primary" id="btnPdf">Export PDF</button>
+  <button class="btn ghost danger" id="btnClear">Clear</button>
+</header>
+<div class="recbar" id="recbar" hidden>
+  <div class="grow"><span class="dot"></span><b id="recLabel">Recording</b><span class="muted" id="recStatus"></span></div>
+  <label id="autoWrap" hidden><input type="checkbox" id="autoT" checked> Capture on screen change</label>
+  <button class="btn" id="btnCap" hidden>Capture now</button>
+  <button class="btn" id="btnPip" hidden>Floating panel</button>
+  <button class="btn" id="btnPause">Pause</button>
+  <button class="btn primary" id="btnStop">Done</button>
+</div>
+<div class="banner" id="updBanner" hidden><span><b>Update ready.</b> <span id="updText"></span></span><button class="btn primary" id="btnUpd">Restart and update</button><button class="btn ghost" id="btnUpdLater">Later</button></div>
+<div class="banner" id="exBanner" hidden><span><b>Example SOP.</b> This was recorded from the practice pharmacy, with names and dates already redacted. Look through it, then record your own.</span><button class="btn" id="btnExClear">Clear example</button></div>
+<main>
+  <aside class="steps">
+    <div class="steps-head">Steps <span class="count" id="count">0</span></div>
+    <ol id="stepList"></ol>
+  </aside>
+  <section class="editor">
+    <div class="tools">
+      <button class="tool" data-tool="select">Move<kbd>V</kbd></button>
+      <button class="tool" data-tool="redact" aria-pressed="true"><i class="sw" style="background:#000"></i>Redact<kbd>R</kbd></button>
+      <button class="tool" data-tool="pixel"><i class="sw" style="background:repeating-conic-gradient(#888 0 25%,#ccc 0 50%) 0 0/6px 6px"></i>Pixelate<kbd>P</kbd></button>
+      <button class="tool" data-tool="highlight"><i class="sw" style="border:2px solid #e11d48"></i>Highlight<kbd>H</kbd></button>
+      <button class="tool" data-tool="click"><i class="sw" style="border:2px solid var(--mark);border-radius:50%"></i>Click marker<kbd>K</kbd></button>
+      <button class="tool" data-tool="crop">Crop<kbd>C</kbd></button>
+      <span class="sep"></span>
+      <button class="tool" id="btnUndo">Undo<kbd>Ctrl Z</kbd></button>
+      <button class="tool" id="btnDelBox">Delete box<kbd>Del</kbd></button>
+      <button class="tool" id="btnClearCrop">Remove crop</button>
+    </div>
+    <div class="stage" id="stage">
+      <canvas id="cv" hidden></canvas>
+      <div class="empty" id="empty" hidden>
+        <h2>Record a procedure</h2>
+        <ol>
+          <li>Click <b>Record</b> and choose <b>Practice pharmacy</b>.</li>
+          <li>Work through a task. Every click and every field you fill in becomes a step.</li>
+          <li>Click <b>Done</b>. On each step, drag <b>Redact</b> boxes over patient details, edit the wording and tick the PHI check.</li>
+          <li><b>Export PDF</b> for trainees.</li>
+        </ol>
+        <button class="btn rec" id="btnEmptyRec">● Record the practice pharmacy</button>
+      </div>
+      <div id="simWrap" hidden>
+        <p class="simHint">Use this like the real system. Every click is saved as a step on the left.</p>
+        <div id="sim"></div>
+      </div>
+    </div>
+  </section>
+  <aside class="side">
+    <div class="tabs"><button class="tab on" data-tab="step">Step</button><button class="tab" data-tab="doc">Document</button></div>
+    <div class="pane" id="pane-step">
+      <div class="steplabel" id="stepLabel">No step selected</div>
+      <label>Step title<input id="fTitle" placeholder="e.g. Open the patient profile"></label>
+      <div class="autoNote" id="autoNote" hidden>Title written automatically from what you clicked. Edit as needed.</div>
+      <label>Instructions<textarea id="fText" rows="5" placeholder="What the trainee should do, and why"></textarea></label>
+      <label>Caution or note (optional)<textarea id="fCaution" rows="2" placeholder="e.g. Confirm a second identifier before continuing"></textarea></label>
+      <label class="check" id="checkWrap"><input type="checkbox" id="fReviewed"> I checked this screenshot and every patient identifier is covered.</label>
+      <p class="hint">Cover names, DOB, MRN, Rx numbers, addresses, phone numbers, facility and room numbers, and allergies. <b>Redact</b> (solid black) is the safest. The orange ring shows trainees where to click.</p>
+    </div>
+    <div class="pane" id="pane-doc" hidden>
+      <label>SOP title<input id="m-title" data-k="title" placeholder="e.g. Processing a new admission order"></label>
+      <label>Purpose<textarea id="m-purpose" data-k="purpose" rows="2"></textarea></label>
+      <label>Scope<textarea id="m-scope" data-k="scope" rows="2" placeholder="Who this applies to"></textarea></label>
+      <label>Department<input id="m-dept" data-k="dept"></label>
+      <label>Author<input id="m-author" data-k="author"></label>
+      <label>Version<input id="m-version" data-k="version"></label>
+      <label>Effective date<input id="m-effective" type="date" data-k="effective"></label>
+      <label>Approved by<input id="m-reviewer" data-k="reviewer"></label>
+    </div>
+  </aside>
+</main>
+<div id="toast" role="status"></div>
+<input type="file" id="fileImgs" accept="image/*" multiple hidden>
+<input type="file" id="fileProj" accept=".json,application/json" hidden>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const blankMeta=()=>({title:'',purpose:'',scope:'',dept:'',author:'',version:'1.0',effective:'',reviewer:''});
+const state={meta:blankMeta(),steps:[],sel:-1,example:false};
+let tool='redact',selBox=-1,drag=null,nextId=1,dirty=false,rafId=0;
+const cv=$('#cv'),ctx=cv.getContext('2d');
+
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('show'),2800)}
+function ask(title,msg,ok='Continue',danger=false){return new Promise(res=>{const s=document.createElement('div');s.className='scrim';
+  s.innerHTML=`<div class="modal" role="dialog" aria-modal="true"><h3>${esc(title)}</h3><p>${esc(msg)}</p><div class="row"><button class="btn" data-r="0">Cancel</button><button class="btn ${danger?'rec':'primary'}" data-r="1">${esc(ok)}</button></div></div>`;
+  s.onclick=e=>{const r=e.target.closest('[data-r]');if(r||e.target===s){s.remove();res(r?.dataset.r==='1')}};document.body.appendChild(s);s.querySelector('[data-r="1"]').focus()})}
+function info(title,msg){return new Promise(res=>{const s=document.createElement('div');s.className='scrim';
+  s.innerHTML=`<div class="modal" role="dialog" aria-modal="true"><h3>${esc(title)}</h3><p>${msg}</p><div class="row"><button class="btn primary" data-r="1">OK</button></div></div>`;
+  s.onclick=e=>{if(e.target.closest('[data-r]')||e.target===s){s.remove();res()}};document.body.appendChild(s)})}
+
+function cur(){return state.steps[state.sel]||null}
+function newStep(c,o={}){return Object.assign({id:nextId++,img:c,w:c.width,h:c.height,boxes:[],crop:null,undo:[],title:'',text:'',caution:'',reviewed:false,auto:false,thumb:''},o)}
+function addStep(c,o,quiet){const s=newStep(c,o);state.steps.push(s);state.sel=state.steps.length-1;selBox=-1;dirty=true;refreshThumb(s);
+  if(!quiet){renderList(s.id);loadForm();draw();updatePip()}return s}
+
+/* ---------- annotations ---------- */
+const pxc=document.createElement('canvas'),pxx=pxc.getContext('2d');
+function pixelate(c,s,b,x,y){const blk=Math.max(14,Math.round(Math.max(s.w,s.h)/90));const tw=Math.max(1,Math.ceil(b.w/blk)),th=Math.max(1,Math.ceil(b.h/blk));pxc.width=tw;pxc.height=th;pxx.drawImage(s.img,b.x,b.y,b.w,b.h,0,0,tw,th);c.save();c.imageSmoothingEnabled=false;c.drawImage(pxc,0,0,tw,th,x,y,b.w,b.h);c.restore()}
+const rank={pixel:0,redact:1,highlight:2,click:3};
+function paintAnnos(c,s,list,ox,oy){[...list].sort((a,b)=>rank[a.type]-rank[b.type]).forEach(b=>{const x=b.x-ox,y=b.y-oy;
+  if(b.type==='redact'){c.fillStyle='#000';c.fillRect(x,y,b.w,b.h)}
+  else if(b.type==='pixel'){pixelate(c,s,b,x,y)}
+  else if(b.type==='click'){const r=Math.max(6,Math.min(b.w,b.h)/2),cx=x+b.w/2,cy=y+b.h/2,lw=Math.max(3,r/6);c.save();
+    c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.fillStyle='rgba(242,113,28,.18)';c.fill();c.lineWidth=lw;c.strokeStyle='#f2711c';c.stroke();
+    c.beginPath();c.arc(cx,cy,Math.max(2.5,r/7),0,Math.PI*2);c.fillStyle='#f2711c';c.fill();c.restore()}
+  else{c.save();c.strokeStyle='#e11d48';c.lineWidth=Math.max(3,Math.round(s.w/350));c.beginPath();if(c.roundRect)c.roundRect(x,y,b.w,b.h,Math.min(10,b.w/4,b.h/4));else c.rect(x,y,b.w,b.h);c.stroke();c.restore()}})}
+function flatten(s){const r=s.crop||{x:0,y:0,w:s.w,h:s.h};const o=document.createElement('canvas');o.width=r.w;o.height=r.h;const x=o.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,r.w,r.h);x.drawImage(s.img,-r.x,-r.y);paintAnnos(x,s,s.boxes,r.x,r.y);return o}
+function refreshThumb(s){const f=flatten(s);const tw=200,th=Math.max(1,Math.round(f.height*tw/f.width));const t=document.createElement('canvas');t.width=tw;t.height=th;t.getContext('2d').drawImage(f,0,0,tw,th);s.thumb=t.toDataURL('image/jpeg',.75)}
+function redactCount(s){return s.boxes.filter(b=>b.type==='redact'||b.type==='pixel').length}
+
+/* ---------- editor ---------- */
+function norm(d,s){const x=clamp(Math.min(d.x0,d.x1),0,s.w),y=clamp(Math.min(d.y0,d.y1),0,s.h),x2=clamp(Math.max(d.x0,d.x1),0,s.w),y2=clamp(Math.max(d.y0,d.y1),0,s.h);return{x:Math.round(x),y:Math.round(y),w:Math.round(x2-x),h:Math.round(y2-y)}}
+function draw(){const s=cur();const rec=document.body.classList.contains('recording');
+  $('#empty').hidden=!!s||rec;if(!s){cv.hidden=true;return}cv.hidden=false;
+  if(cv.width!==s.w)cv.width=s.w;if(cv.height!==s.h)cv.height=s.h;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,s.w,s.h);ctx.drawImage(s.img,0,0);
+  const tmp=drag&&drag.mode==='draw'?norm(drag,s):null;
+  paintAnnos(ctx,s,tmp&&tool!=='crop'?[...s.boxes,{...tmp,type:tool}]:s.boxes,0,0);
+  const lw=Math.max(2,s.w/600);const crop=tmp&&tool==='crop'?tmp:s.crop;
+  if(crop){ctx.save();ctx.fillStyle='rgba(0,0,0,.5)';ctx.beginPath();ctx.rect(0,0,s.w,s.h);ctx.rect(crop.x,crop.y,crop.w,crop.h);ctx.fill('evenodd');ctx.setLineDash([lw*4,lw*3]);ctx.strokeStyle='#fff';ctx.lineWidth=lw;ctx.strokeRect(crop.x,crop.y,crop.w,crop.h);ctx.restore()}
+  const b=s.boxes[selBox];if(b){ctx.save();ctx.setLineDash([lw*3,lw*2]);ctx.strokeStyle='#3b82f6';ctx.lineWidth=lw;ctx.strokeRect(b.x-lw*2,b.y-lw*2,b.w+4*lw,b.h+4*lw);ctx.restore()}}
+function schedule(){if(!rafId)rafId=requestAnimationFrame(()=>{rafId=0;draw()})}
+function pt(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height}}
+function hit(s,p){for(let i=s.boxes.length-1;i>=0;i--){const b=s.boxes[i];if(p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h)return i}return -1}
+function pushUndo(s){s.undo.push(JSON.stringify({b:s.boxes,c:s.crop}));if(s.undo.length>60)s.undo.shift()}
+function changed(s){dirty=true;refreshThumb(s);renderList();draw()}
+cv.addEventListener('pointerdown',e=>{const s=cur();if(!s)return;cv.setPointerCapture(e.pointerId);const p=pt(e);
+  if(tool==='select'){selBox=hit(s,p);if(selBox>=0){pushUndo(s);const b=s.boxes[selBox];drag={mode:'move',sx:p.x,sy:p.y,ox:b.x,oy:b.y}}draw();return}
+  if(tool==='click'){pushUndo(s);const r=Math.round(Math.max(18,s.w/45));s.boxes.push({type:'click',x:Math.round(p.x-r),y:Math.round(p.y-r),w:2*r,h:2*r});selBox=s.boxes.length-1;changed(s);return}
+  drag={mode:'draw',x0:p.x,y0:p.y,x1:p.x,y1:p.y};draw()});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const s=cur();const p=pt(e);
+  if(drag.mode==='move'){const b=s.boxes[selBox];b.x=Math.round(clamp(drag.ox+p.x-drag.sx,0,s.w-b.w));b.y=Math.round(clamp(drag.oy+p.y-drag.sy,0,s.h-b.h))}else{drag.x1=p.x;drag.y1=p.y}schedule()});
+function endDrag(){if(!drag)return;const s=cur();
+  if(drag.mode==='draw'){const r=norm(drag,s);if(r.w>6&&r.h>6){pushUndo(s);if(tool==='crop')s.crop=r;else{s.boxes.push({...r,type:tool});selBox=s.boxes.length-1}}}
+  drag=null;changed(s)}
+cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+function undo(){const s=cur();if(!s||!s.undo.length)return;const o=JSON.parse(s.undo.pop());s.boxes=o.b;s.crop=o.c;selBox=-1;changed(s)}
+function delSel(){const s=cur();if(!s||selBox<0)return;pushUndo(s);s.boxes.splice(selBox,1);selBox=-1;changed(s)}
+function clearCrop(){const s=cur();if(!s||!s.crop)return;pushUndo(s);s.crop=null;changed(s)}
+function setTool(t){tool=t;document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));cv.style.cursor=t==='select'?'move':'crosshair';if(t!=='select'){selBox=-1;draw()}}
+
+/* ---------- step list + forms ---------- */
+function renderList(flashId){const ol=$('#stepList');ol.innerHTML='';
+  if(!state.steps.length)ol.innerHTML='<li class="listEmpty">No steps yet. Record a task and each click will appear here.</li>';
+  state.steps.forEach((s,i)=>{const li=document.createElement('li');li.className='step'+(i===state.sel?' on':'')+(s.id===flashId?' new':'');
+    const n=redactCount(s);
+    li.innerHTML=`<img alt="" src="${s.thumb}"><div class="meta"><span class="n">STEP ${String(i+1).padStart(2,'0')}</span><span class="t">${esc(s.title||'Untitled step')}</span><span class="chips"><span class="badge ${s.reviewed?'ok':'warn'}">${s.reviewed?'PHI checked':'Check PHI'}</span>${n?`<span class="badge ok">${n} redacted</span>`:''}</span></div><div class="ctl"><button data-a="up" title="Move up" aria-label="Move up">↑</button><button data-a="down" title="Move down" aria-label="Move down">↓</button><button data-a="del" title="Delete step" aria-label="Delete step">✕</button></div>`;
+    li.onclick=e=>{const a=e.target.closest('button')?.dataset.a;if(a==='up')move(i,-1);else if(a==='down')move(i,1);else if(a==='del')delStep(i);else select(i)};ol.appendChild(li)});
+  $('#count').textContent=state.steps.length;
+  if(flashId){const el=ol.querySelector('.new');el?.scrollIntoView({block:'nearest',inline:'nearest'})}}
+function select(i){state.sel=i;selBox=-1;renderList();loadForm();draw()}
+function move(i,d){const j=i+d;if(j<0||j>=state.steps.length)return;const a=state.steps;[a[i],a[j]]=[a[j],a[i]];if(state.sel===i)state.sel=j;else if(state.sel===j)state.sel=i;dirty=true;renderList();loadForm()}
+async function delStep(i){if(!await ask('Delete this step?',`Step ${i+1} and its screenshot will be removed.`,'Delete',true))return;state.steps.splice(i,1);if(i<state.sel||state.sel>=state.steps.length)state.sel--;if(state.sel<0&&state.steps.length)state.sel=0;selBox=-1;dirty=true;renderList();loadForm();draw();updatePip()}
+function loadForm(){const s=cur();['#fTitle','#fText','#fCaution','#fReviewed'].forEach(q=>$(q).disabled=!s);
+  $('#stepLabel').textContent=s?`Step ${state.sel+1} of ${state.steps.length}`:'No step selected';
+  $('#fTitle').value=s?.title||'';$('#fText').value=s?.text||'';$('#fCaution').value=s?.caution||'';$('#fReviewed').checked=!!s?.reviewed;$('#checkWrap').classList.toggle('ok',!!s?.reviewed);$('#autoNote').hidden=!s?.auto}
+$('#fTitle').oninput=e=>{const s=cur();if(s){s.title=e.target.value;s.auto=false;$('#autoNote').hidden=true;dirty=true;renderList()}};
+$('#fText').oninput=e=>{const s=cur();if(s){s.text=e.target.value;dirty=true}};
+$('#fCaution').oninput=e=>{const s=cur();if(s){s.caution=e.target.value;dirty=true}};
+$('#fReviewed').onchange=e=>{const s=cur();if(s){s.reviewed=e.target.checked;$('#checkWrap').classList.toggle('ok',s.reviewed);dirty=true;renderList()}};
+document.querySelectorAll('[data-k]').forEach(el=>el.oninput=()=>{state.meta[el.dataset.k]=el.value;dirty=true});
+function fillMeta(){document.querySelectorAll('[data-k]').forEach(el=>el.value=state.meta[el.dataset.k]||'')}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));$('#pane-step').hidden=t.dataset.tab!=='step';$('#pane-doc').hidden=t.dataset.tab!=='doc'});
+function setExample(v){state.example=v;$('#exBanner').hidden=!v}
+function dropExample(){if(!state.example)return;state.steps=[];state.sel=-1;state.meta=blankMeta();fillMeta();setExample(false)}
+
+/* ============ PRACTICE PHARMACY (click capture) ============ */
+const P={view:'home',pid:null,toast:'',q:'',form:{},orders:[]};
+const PATIENTS=[
+  {id:1,name:'Abbott, Harold',dob:'03/14/1938',mrn:'MR-204817',fac:'Cedar Grove SNF',room:'112B',allergy:'Penicillin',meds:[['Metoprolol tartrate 25 mg','1 tab PO BID'],['Atorvastatin 20 mg','1 tab PO at bedtime'],['Docusate 100 mg','1 cap PO daily PRN']]},
+  {id:2,name:'Delgado, Rosa',dob:'11/02/1941',mrn:'MR-311092',fac:'Cedar Grove SNF',room:'208A',allergy:'Sulfa drugs',meds:[['Levothyroxine 50 mcg','1 tab PO daily before breakfast'],['Furosemide 20 mg','1 tab PO daily'],['Potassium chloride ER 10 mEq','1 tab PO daily']]},
+  {id:3,name:'Nguyen, Thomas',dob:'07/29/1935',mrn:'MR-118455',fac:'Willow Creek ALF',room:'14',allergy:'None known',meds:[['Donepezil 10 mg','1 tab PO at bedtime'],['Amlodipine 5 mg','1 tab PO daily']]},
+  {id:4,name:'Brennan, Margaret',dob:'01/18/1944',mrn:'MR-402266',fac:'Willow Creek ALF',room:'22',allergy:'Codeine',meds:[['Metformin 500 mg','1 tab PO BID with meals'],['Lisinopril 10 mg','1 tab PO daily']]},
+  {id:5,name:'Okafor, James',dob:'09/05/1939',mrn:'MR-277310',fac:'Cedar Grove SNF',room:'305',allergy:'None known',meds:[['Apixaban 5 mg','1 tab PO BID'],['Pantoprazole 40 mg','1 tab PO daily']]}];
+function resetP(){P.view='home';P.pid=null;P.toast='';P.q='';P.form={};P.orders=[{id:901,pid:2,drug:'Furosemide 40 mg',sig:'1 tab PO daily',status:'Pending'},{id:902,pid:5,drug:'Senna 8.6 mg',sig:'2 tabs PO at bedtime',status:'Pending'}]}
+const pat=id=>PATIENTS.find(p=>p.id===id);
+const phi=(v,lbl)=>`<span data-phi>${esc(v)}</span>`;
+function simRender(){const sim=$('#sim');const pend=P.orders.filter(o=>o.status==='Pending').length;
+  const nav=(v,l,extra='')=>`<button data-action="nav" data-view="${v}" data-label="${l}" data-where="in the left menu" class="${P.view===v||(v==='patients'&&(P.view==='profile'||P.view==='order'))?'on':''}">${l}${extra}</button>`;
+  let main='';
+  if(P.view==='home'){main=`<h1>Good morning</h1><p class="s-sub">Pharmacy work queue · Tuesday</p>
+    <div class="s-cards"><div class="s-card"><div class="k">Orders to verify</div><div class="v">${pend}</div></div><div class="s-card"><div class="k">Refill requests</div><div class="v">3</div></div><div class="s-card"><div class="k">Deliveries today</div><div class="v">4</div></div></div>
+    <div class="s-box"><h2>Next up</h2><table class="s-table"><tr><th>Patient</th><th>Order</th><th>Status</th><th></th></tr>${P.orders.filter(o=>o.status==='Pending').map(o=>`<tr><td>${phi(pat(o.pid).name)}</td><td>${esc(o.drug)}</td><td><span class="s-status">Pending</span></td><td><button class="s-btn" data-action="nav" data-view="orders" data-label="Review">Review</button></td></tr>`).join('')||'<tr><td colspan="4">Nothing waiting.</td></tr>'}</table></div>`}
+  else if(P.view==='patients'){const q=P.q.toLowerCase();const list=PATIENTS.filter(p=>!q||p.name.toLowerCase().includes(q));
+    main=`<h1>Patients</h1><p class="s-sub">${PATIENTS.length} active residents</p><div class="s-row" style="margin-bottom:12px"><input class="s-search" id="sSearch" type="text" placeholder="Search by name" data-label="Search patients" data-phi data-type-label="Type the patient's name in the search box" value="${esc(P.q)}"><button class="s-btn" data-action="search" data-label="Search">Search</button></div>
+    <div class="s-box"><table class="s-table"><tr><th>Name</th><th>DOB</th><th>Facility</th><th>Room</th></tr>${list.map(p=>`<tr data-action="open" data-id="${p.id}" data-phi-label="the patient's name in the list"><td>${phi(p.name)}</td><td>${phi(p.dob)}</td><td>${phi(p.fac)}</td><td>${phi(p.room)}</td></tr>`).join('')||'<tr><td colspan="4">No matches.</td></tr>'}</table></div>`}
+  else if(P.view==='profile'){const p=pat(P.pid);
+    main=`<div class="s-row" style="justify-content:space-between;margin-bottom:10px"><h1>${phi(p.name)}</h1><div class="s-row"><button class="s-btn" data-action="nav" data-view="patients" data-label="Back to patients">Back</button><button class="s-btn pri" data-action="neworder" data-label="New order">New order</button></div></div>
+    <div class="s-prof"><div class="k">DOB</div><div class="k">MRN</div><div class="k">Facility / room</div><div class="k">Allergies</div><div>${phi(p.dob)}</div><div>${phi(p.mrn)}</div><div>${phi(p.fac+' · '+p.room)}</div><div class="s-allergy">${phi(p.allergy)}</div></div>
+    <div class="s-box"><h2>Active medications</h2><table class="s-table"><tr><th>Medication</th><th>Directions</th></tr>${p.meds.map(m=>`<tr><td>${esc(m[0])}</td><td>${esc(m[1])}</td></tr>`).join('')}</table></div>`}
+  else if(P.view==='order'){const p=pat(P.pid),f=P.form;
+    main=`<h1>New order</h1><p class="s-sub">For ${phi(p.name)} · Allergies: <span class="s-allergy">${phi(p.allergy)}</span></p>
+    <div class="s-form"><label>Drug<input type="text" id="fDrug" data-f="drug" data-label="Drug" value="${esc(f.drug||'')}" placeholder="Name and strength"></label>
+    <label>Quantity<input type="text" id="fQty" data-f="qty" data-label="Quantity" value="${esc(f.qty||'')}"></label>
+    <label class="full">Directions<input type="text" id="fSig" data-f="sig" data-label="Directions" value="${esc(f.sig||'')}" placeholder="e.g. 1 tab PO daily"></label>
+    <label>Prescriber<input type="text" id="fPresc" data-f="presc" data-label="Prescriber" value="${esc(f.presc||'')}"></label>
+    <label>Refills<input type="text" id="fRef" data-f="refills" data-label="Refills" value="${esc(f.refills||'')}"></label>
+    <label class="chk full"><input type="checkbox" id="fAll" data-f="allergy" data-label="Allergies reviewed" ${f.allergy?'checked':''}> Allergies reviewed against this order</label>
+    <div class="full s-row" style="justify-content:flex-end"><button class="s-btn" data-action="open" data-id="${p.id}" data-label="Cancel">Cancel</button><button class="s-btn pri" data-action="submit" data-label="Submit for verification">Submit for verification</button></div></div>`}
+  else if(P.view==='orders'){main=`<h1>Orders</h1><p class="s-sub">Pharmacist verification queue</p><div class="s-box"><table class="s-table"><tr><th>Patient</th><th>Order</th><th>Directions</th><th>Status</th><th></th></tr>${P.orders.map(o=>`<tr><td>${phi(pat(o.pid).name)}</td><td>${esc(o.drug)}</td><td>${esc(o.sig)}</td><td><span class="s-status ${o.status==='Verified'?'v':''}">${o.status}</span></td><td>${o.status==='Pending'?`<button class="s-btn ok" data-action="verify" data-id="${o.id}" data-label="Verify">Verify</button>`:''}</td></tr>`).join('')}</table></div>`}
+  else{main=`<h1>Refill requests</h1><p class="s-sub">From facility nurses</p><div class="s-box"><table class="s-table"><tr><th>Patient</th><th>Medication</th><th>Requested</th></tr><tr><td>${phi('Abbott, Harold')}</td><td>Atorvastatin 20 mg</td><td>Today 7:42 AM</td></tr><tr><td>${phi('Delgado, Rosa')}</td><td>Levothyroxine 50 mcg</td><td>Today 8:15 AM</td></tr><tr><td>${phi('Brennan, Margaret')}</td><td>Metformin 500 mg</td><td>Yesterday</td></tr></table></div>`}
+  sim.innerHTML=`<div class="s-top"><b>Ridgeline LTC Pharmacy</b><span class="s-demo">PRACTICE · FAKE PATIENTS</span><span class="s-user">Signed in: Pharmacist (demo)</span></div>
+  <nav class="s-nav">${nav('home','Work queue')}${nav('patients','Patients')}${nav('orders','Orders',pend?`<span class="pill">${pend}</span>`:'')}${nav('refills','Refill requests')}</nav>
+  <div class="s-main">${main}</div>${P.toast?`<div class="s-toast">${esc(P.toast)}</div>`:''}`}
+function simAction(el){const a=el.dataset.action;P.toast='';
+  if(a==='nav'){P.view=el.dataset.view}
+  else if(a==='open'){P.pid=+el.dataset.id;P.view='profile';P.form={}}
+  else if(a==='search'){P.q=$('#sSearch')?.value||''}
+  else if(a==='neworder'){P.view='order';P.form={}}
+  else if(a==='submit'){const f=P.form;if(!f.drug){P.toast='Enter a drug before submitting'}else{P.orders.unshift({id:Date.now(),pid:P.pid,drug:f.drug,sig:f.sig||'',status:'Pending'});P.view='orders';P.toast='Order sent for verification'}}
+  else if(a==='verify'){const o=P.orders.find(o=>o.id===+el.dataset.id);if(o){o.status='Verified';P.toast='Order verified'}}
+  simRender()}
+$('#sim').addEventListener('click',e=>{const el=e.target.closest('[data-action]');if(el)simAction(el)});
+$('#sim').addEventListener('input',e=>{const f=e.target.dataset.f;if(f)P.form[f]=e.target.type==='checkbox'?e.target.checked:e.target.value;if(e.target.id==='sSearch')P.q=e.target.value});
+$('#sim').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='sSearch'){e.preventDefault();e.target.dispatchEvent(new Event('change',{bubbles:true}));$('#sim [data-action=search]')?.click()}});
+
+/* --- Scribe-style capture --- */
+const rec={on:false,mode:null,paused:false,chain:Promise.resolve(),busy:0};
+function enqueue(fn){rec.busy++;rec.chain=rec.chain.then(fn).catch(err=>{console.error(err);toast('A step could not be captured.')}).finally(()=>rec.busy--)}
+async function snapSim(){const s=Math.min(2,Math.max(1,window.devicePixelRatio||1));const el=$('#sim');
+  if(typeof html2canvas!=='function')throw new Error('capture library not loaded');
+  const c=await html2canvas(el,{scale:s,backgroundColor:'#f5f7fa',logging:false,useCORS:true,onclone:d=>{const x=d.querySelector('#sim');x.style.boxShadow='none';x.style.borderRadius='0'}});return{c,s,r:el.getBoundingClientRect()}}
+function labelOf(el){const raw=el.dataset.label||el.getAttribute('aria-label')||el.closest('label')?.innerText||el.placeholder||el.innerText||'';return raw.replace(/\s+/g,' ').trim().slice(0,60)}
+function clickTitle(el){const ph=el.closest('[data-phi-label]');if(ph)return`Click ${ph.dataset.phiLabel}`;
+  const lab=labelOf(el)||'the highlighted item';const where=el.closest('[data-where]')?.dataset.where;
+  if(el.matches('input[type=checkbox]')||el.closest('label.chk'))return`Check “${lab}”`;
+  if(el.matches('input,textarea'))return`Click the “${lab}” field`;
+  return`Click “${lab}”${where?' '+where:''}`}
+function typeTitle(el){if(el.closest('[data-phi]'))return el.dataset.typeLabel||`Enter the patient's details in “${labelOf(el)}”`;
+  const v=el.value.trim();return v?`Type “${v.slice(0,50)}” in the “${labelOf(el)}” field`:`Clear the “${labelOf(el)}” field`}
+function markerBox(cx,cy,s){const r=Math.round(20*s);return{type:'click',x:Math.round(cx-r),y:Math.round(cy-r),w:2*r,h:2*r}}
+async function recordClick(el,pt){const {c,s,r}=await snapSim();let x=pt.x-r.left,y=pt.y-r.top;
+  if(!pt.x&&!pt.y){const b=el.getBoundingClientRect();x=b.left+b.width/2-r.left;y=b.top+b.height/2-r.top}
+  const st=addStep(c,{title:clickTitle(el),auto:true,boxes:[markerBox(x*s,y*s,s)]});
+  rec.field=el.matches('input[type=text],textarea')?{el,id:st.id}:null}
+async function recordType(el){const {c,s,r}=await snapSim();const b=el.getBoundingClientRect();
+  const boxes=[{type:'highlight',x:Math.round((b.left-r.left-4)*s),y:Math.round((b.top-r.top-4)*s),w:Math.round((b.width+8)*s),h:Math.round((b.height+8)*s)}];
+  const last=state.steps[state.steps.length-1];
+  if(rec.field&&rec.field.el===el&&last&&last.id===rec.field.id&&last.auto){
+    Object.assign(last,{img:c,w:c.width,h:c.height,title:typeTitle(el),boxes,undo:[],crop:null});refreshThumb(last);state.sel=state.steps.length-1;renderList(last.id);loadForm();draw()}
+  else addStep(c,{title:typeTitle(el),auto:true,boxes});
+  rec.field=null}
+$('#sim').addEventListener('click',e=>{if(!rec.on||rec.mode!=='sim'||rec.paused||!e.isTrusted)return;
+  const el=e.target.closest('[data-action],button,input,textarea,label');if(!el)return;
+  const pt={x:e.clientX,y:e.clientY};
+  if(el.matches('input[type=text],textarea')){enqueue(()=>recordClick(el,pt));return}
+  e.preventDefault();e.stopImmediatePropagation();
+  enqueue(async()=>{await recordClick(el,pt);el.click()})},true);
+$('#sim').addEventListener('change',e=>{if(!rec.on||rec.mode!=='sim'||rec.paused)return;const el=e.target;if(el.matches('input[type=text],textarea'))enqueue(()=>recordType(el))},true);
+
+function startSim(){if(rec.on)return;dropExample();resetP();simRender();rec.on=true;rec.mode='sim';rec.paused=false;
+  document.body.classList.add('recording');$('#simWrap').hidden=false;$('#recbar').hidden=false;$('#recbar').classList.remove('paused');
+  $('#autoWrap').hidden=$('#btnCap').hidden=$('#btnPip').hidden=true;$('#btnPause').hidden=false;$('#btnPause').textContent='Pause';
+  $('#recLabel').textContent='Recording the practice pharmacy';$('#recStatus').textContent='Click through a task. Each click becomes a step.';
+  const first=state.steps.length;rec.first=first;draw()}
+async function stopSim(){$('#recStatus').textContent='Finishing the last step…';await rec.chain;rec.on=false;rec.mode=null;
+  document.body.classList.remove('recording');$('#simWrap').hidden=true;$('#recbar').hidden=true;
+  const n=state.steps.length-rec.first;if(n>0)select(rec.first);else{renderList();loadForm();draw()}
+  toast(n?`${n} step${n>1?'s':''} recorded. Now cover patient details on each one.`:'No steps recorded.')}
+function togglePause(){rec.paused=!rec.paused;$('#btnPause').textContent=rec.paused?'Resume':'Pause';$('#recbar').classList.toggle('paused',rec.paused);
+  $('#recLabel').textContent=rec.paused?'Paused':(rec.mode==='sim'?'Recording the practice pharmacy':'Recording');
+  if(rec.mode==='sim')$('#recStatus').textContent=rec.paused?'Clicks are not being recorded.':'Click through a task. Each click becomes a step.';else setAuto(!rec.paused)}
+
+/* ============ OTHER WINDOW (screen-change capture) ============ */
+let stream=null,track=null,icap=null,stopTick=null,auto=true,busy=false,prevG=null,lastG=null,stable=0,pip=null;
+const video=document.createElement('video');video.muted=true;video.playsInline=true;
+const SW=96,SH=54,smp=document.createElement('canvas');smp.width=SW;smp.height=SH;const sctx=smp.getContext('2d',{willReadFrequently:true});
+function gray(src){sctx.drawImage(src,0,0,SW,SH);const d=sctx.getImageData(0,0,SW,SH).data,g=new Uint8Array(SW*SH);for(let i=0,j=0;i<d.length;i+=4,j++)g[j]=(d[i]*3+d[i+1]*6+d[i+2])/10;return g}
+function diff(a,b){let n=0;for(let i=0;i<a.length;i++)if(Math.abs(a[i]-b[i])>28)n++;return n/a.length}
+function ticker(ms,fn){let id=null,w=null;const fallback=()=>{if(w){w.terminate();w=null}if(!id)id=setInterval(fn,ms)};
+  try{w=new Worker(URL.createObjectURL(new Blob([`setInterval(()=>postMessage(0),${ms})`],{type:'text/javascript'})));w.onmessage=fn;w.onerror=fallback}catch(e){fallback()}
+  return()=>{if(w)w.terminate();if(id)clearInterval(id)}}
+async function frame(){if(icap&&track&&track.readyState==='live'){try{return await icap.grabFrame()}catch(e){}}return video.videoWidth?video:null}
+async function captureNow(){if(!track)return;const src=await frame();if(!src)return;const w=src.videoWidth||src.width,h=src.videoHeight||src.height;if(!w||!h)return;
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(src,0,0,w,h);lastG=gray(c);if(src.close)src.close();addStep(c,{title:''});pipFlash()}
+async function tick(){if(!track||!auto||busy)return;busy=true;try{const src=await frame();if(!src)return;const g=gray(src);if(src.close)src.close();
+  if(prevG)stable=diff(g,prevG)<0.003?stable+1:0;prevG=g;
+  if(lastG&&stable>=2&&diff(g,lastG)>0.02){await captureNow();stable=0}}finally{busy=false}}
+const blockedMsg='This test page runs inside Claude, which doesn\'t allow screen recording. Use <b>Practice pharmacy</b> here. To record other apps, open the downloaded <b>Referensys</b> in Chrome or Edge.';
+async function startScreen(){if(rec.on)return;
+  if(!navigator.mediaDevices?.getDisplayMedia){info('Screen recording isn\'t available here',blockedMsg);return}
+  const t0=performance.now();
+  try{stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:5,max:10}},audio:false,selfBrowserSurface:'exclude',surfaceSwitching:'include'})}
+  catch(e){if(performance.now()-t0<400||window.top!==window.self)info('Screen recording didn\'t start',blockedMsg);return}
+  dropExample();track=stream.getVideoTracks()[0];track.addEventListener('ended',stopScreen);
+  icap=null;if('ImageCapture' in window){try{icap=new ImageCapture(track)}catch(e){}}
+  video.srcObject=stream;try{await video.play()}catch(e){}
+  rec.on=true;rec.mode='screen';rec.paused=false;rec.first=state.steps.length;prevG=lastG=null;stable=0;
+  $('#recbar').hidden=false;$('#autoWrap').hidden=$('#btnCap').hidden=$('#btnPip').hidden=false;$('#btnPause').hidden=true;
+  $('#recLabel').textContent='Recording';setAuto(true);setTimeout(captureNow,700);stopTick=ticker(700,tick)}
+function stopScreen(){if(stopTick){stopTick();stopTick=null}if(stream)stream.getTracks().forEach(t=>t.stop());stream=track=icap=null;video.srcObject=null;
+  rec.on=false;rec.mode=null;$('#recbar').hidden=true;if(pip){pip.close();pip=null}const n=state.steps.length-rec.first;if(n)select(rec.first);toast(n?'Recording stopped. Now cover patient details on each step.':'No steps recorded.')}
+function setAuto(v){auto=v;$('#autoT').checked=v;prevG=null;stable=0;if(rec.mode==='screen')$('#recStatus').textContent=v?'A step is saved when the screen changes and settles.':'Auto-capture paused. Use Capture now.';updatePip()}
+async function openPip(){if(!('documentPictureInPicture' in window)){toast('The floating panel needs Chrome or Edge 116 or newer.');return}if(pip)return;
+  try{pip=await documentPictureInPicture.requestWindow({width:280,height:140})}catch(e){toast('Could not open the floating panel.');return}
+  const d=pip.document;d.head.innerHTML='<style>body{margin:0;font:13px system-ui,sans-serif;background:#0f1418;color:#e6edf3;display:flex;flex-direction:column;gap:8px;padding:10px;transition:background .15s}body.f{background:#1d4d49}.r{display:flex;gap:6px}button{flex:1;padding:10px 6px;border:0;border-radius:8px;font:600 13px system-ui,sans-serif;cursor:pointer;background:#25313b;color:#e6edf3}#cap{background:#2bb3a8;color:#04201e}.s{color:#93a1ae}</style>';
+  d.body.innerHTML='<div><b id="n">0</b> steps <span class="s" id="m"></span></div><div class="r"><button id="cap">Capture</button><button id="auto"></button></div><div class="r"><button id="stop">Stop recording</button></div>';
+  d.getElementById('cap').onclick=()=>captureNow();d.getElementById('auto').onclick=()=>setAuto(!auto);d.getElementById('stop').onclick=stopScreen;
+  pip.addEventListener('pagehide',()=>{pip=null});updatePip()}
+function updatePip(){if(!pip)return;const d=pip.document;d.getElementById('n').textContent=state.steps.length;d.getElementById('auto').textContent=auto?'Pause auto':'Resume auto';d.getElementById('m').textContent=auto?'· auto on':'· paused'}
+function pipFlash(){if(!pip)return;const b=pip.document.body;b.classList.add('f');setTimeout(()=>b.classList.remove('f'),250)}
+
+/* ---------- images in ---------- */
+async function addFile(f){if(!f||!f.type.startsWith('image/'))return;try{const bmp=await createImageBitmap(f);const c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;c.getContext('2d').drawImage(bmp,0,0);bmp.close();dropExample();addStep(c)}catch(e){toast('Could not read that image.')}}
+$('#fileImgs').onchange=async e=>{for(const f of e.target.files)await addFile(f);e.target.value=''};
+document.addEventListener('paste',e=>{if(rec.on||e.target.closest('input,textarea'))return;for(const it of e.clipboardData.items)if(it.type.startsWith('image/'))addFile(it.getAsFile())});
+$('#stage').addEventListener('dragover',e=>e.preventDefault());
+$('#stage').addEventListener('drop',async e=>{e.preventDefault();for(const f of e.dataTransfer.files)await addFile(f)});
+
+/* ---------- save / open / export ---------- */
+function fname(){return(state.meta.title||'SOP').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')||'SOP'}
+async function saveBlob(blob,name){
+  if(window.claude?.use){try{const d=await window.claude.use('downloads');if(d){await d.save({filename:name,data:blob});return true}}
+    catch(e){if(e?.code==='declined')return false;if(e&&e.code&&!['unavailable','not_granted','capability_disabled','capability_removed'].includes(e.code)){toast('Could not save: '+(e.message||e.code));return false}}}
+  try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);return true}
+  catch(e){toast('Saving files isn\'t available in this view.');return false}}
+async function saveProject(){if(!state.steps.length){toast('Nothing to save yet.');return}
+  if(!await ask('Save project','Saving makes your redactions and crops permanent. The unredacted screenshots are not saved and are removed from this session.','Save'))return;
+  state.steps.forEach(s=>{const f=flatten(s);s.img=f;s.w=f.width;s.h=f.height;s.boxes=[];s.crop=null;s.undo=[];refreshThumb(s)});selBox=-1;renderList();draw();
+  const data={app:'referensys',v:2,meta:state.meta,steps:state.steps.map(s=>({title:s.title,text:s.text,caution:s.caution,reviewed:s.reviewed,image:s.img.toDataURL('image/png')}))};
+  if(await saveBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),fname()+'.sop.json')){dirty=false;toast('Project saved.')}}
+async function loadProject(f){try{const d=JSON.parse(await f.text());if(d.app!=='referensys'&&d.app!=='sop-builder')throw 0;
+    if(state.steps.length&&!state.example&&!await ask('Open project','This replaces the SOP you have open now.','Replace',true))return;
+    const steps=[];for(const st of d.steps){const img=new Image();img.src=st.image;await img.decode();const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);
+      const s=newStep(c,{title:st.title||'',text:st.text||'',caution:st.caution||'',reviewed:!!st.reviewed});refreshThumb(s);steps.push(s)}
+    setExample(false);state.meta={...blankMeta(),...d.meta};state.steps=steps;state.sel=steps.length?0:-1;selBox=-1;fillMeta();renderList();loadForm();draw();dirty=false;toast('Project opened.')}
+  catch(e){toast('That file is not a Referensys project.')}}
+$('#fileProj').onchange=e=>{if(e.target.files[0])loadProject(e.target.files[0]);e.target.value=''};
+const pdfT=s=>String(s||'').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-').replace(/…/g,'...').replace(/[^\x00-\xFF]/g,'');
+async function exportPdf(){if(!state.steps.length){toast('Add at least one step first.');return}
+  if(!window.jspdf){toast('The PDF library did not load. Check your connection and reload.');return}
+  const un=state.steps.filter(s=>!s.reviewed).length;
+  if(un&&!await ask('Some steps aren\'t checked for PHI',`${un} step${un>1?'s have':' has'} not been marked as checked. Patient details could appear in the PDF.`,'Export anyway',true))return;
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',format:'letter'});const W=612,H=792,M=50,IND=34,TW=W-2*M-IND;let y=M;
+  const teal=[13,107,107];
+  doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(...teal);doc.text('STANDARD OPERATING PROCEDURE',M,y);y+=22;
+  doc.setFontSize(20);doc.setTextColor(20,33,43);const tl=doc.splitTextToSize(pdfT(state.meta.title||'Untitled SOP'),W-2*M);doc.text(tl,M,y);y+=tl.length*24;
+  const m=state.meta,rows=[['Purpose',m.purpose],['Scope',m.scope],['Department',m.dept],['Author',m.author],['Version',m.version],['Effective date',m.effective],['Approved by',m.reviewer]].filter(r=>r[1]);
+  doc.setFontSize(9.5);rows.forEach(([k,v])=>{const l=doc.splitTextToSize(pdfT(v),W-2*M-100);doc.setFont('helvetica','bold');doc.setTextColor(90,107,120);doc.text(k,M,y);doc.setFont('helvetica','normal');doc.setTextColor(20,33,43);doc.text(l,M+100,y);y+=l.length*13+3});
+  y+=6;doc.setDrawColor(...teal);doc.setLineWidth(1.5);doc.line(M,y,W-M,y);y+=26;
+  for(let i=0;i<state.steps.length;i++){const s=state.steps[i];const f=flatten(s);
+    let iw=TW,ih=iw*f.height/f.width;if(ih>330){ih=330;iw=ih*f.width/f.height}
+    doc.setFont('helvetica','bold');doc.setFontSize(12.5);const tL=doc.splitTextToSize(pdfT(s.title||'Step '+(i+1)),TW);
+    doc.setFont('helvetica','normal');doc.setFontSize(10.5);const bL=s.text?doc.splitTextToSize(pdfT(s.text),TW):[];
+    doc.setFontSize(9.5);const cL=s.caution?doc.splitTextToSize(pdfT('Caution: '+s.caution),TW-16):[];
+    const need=tL.length*16+(bL.length?bL.length*14+6:0)+(cL.length?cL.length*12.5+16:0)+ih+30;
+    if(y+need>H-M-20&&y>M+40){doc.addPage();y=M}
+    doc.setFillColor(...teal);doc.circle(M+11,y-4,11,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.text(String(i+1),M+11,y-0.5,{align:'center'});
+    const x=M+IND;doc.setTextColor(20,33,43);doc.setFontSize(12.5);doc.text(tL,x,y);y+=tL.length*16;
+    if(bL.length){doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(40,52,62);doc.text(bL,x,y);y+=bL.length*14+6}
+    if(cL.length){const ch=cL.length*12.5+10;doc.setFillColor(255,243,226);doc.rect(x,y-9,TW,ch,'F');doc.setFillColor(165,86,10);doc.rect(x,y-9,3,ch,'F');doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(90,50,5);doc.text(cL,x+10,y+1);y+=ch+6}
+    doc.addImage(f.toDataURL('image/jpeg',.9),'JPEG',x,y,iw,ih);doc.setDrawColor(200,208,214);doc.setLineWidth(.6);doc.rect(x,y,iw,ih);y+=ih+30}
+  const n=doc.getNumberOfPages();for(let p=1;p<=n;p++){doc.setPage(p);doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(110,120,128);
+    doc.text(pdfT(`${state.meta.title||'SOP'}${state.meta.version?' · v'+state.meta.version:''}`).replace('·','-'),M,H-28);doc.text(`Page ${p} of ${n}`,W-M,H-28,{align:'right'});
+    if(p===n)doc.text('Screenshots were redacted for PHI before distribution. Generated '+new Date().toLocaleDateString()+'.',M,H-40)}
+  if(await saveBlob(doc.output('blob'),fname()+'.pdf'))toast('PDF ready.')}
+async function clearAll(){if(!state.steps.length)return;if(!state.example&&!await ask('Clear all steps?','Unsaved work will be lost.','Clear',true))return;
+  state.steps=[];state.sel=-1;selBox=-1;state.meta=blankMeta();fillMeta();setExample(false);dirty=false;renderList();loadForm();draw();updatePip()}
+
+/* ---------- example SOP, built by actually recording the practice app ---------- */
+async function phiBoxes(s){const r=$('#sim').getBoundingClientRect();return[...$('#sim').querySelectorAll('[data-phi]')].map(el=>{const b=el.getBoundingClientRect();return{type:'redact',x:Math.round((b.left-r.left-3)*s),y:Math.round((b.top-r.top-3)*s),w:Math.round((b.width+6)*s),h:Math.round((b.height+6)*s)}}).filter(b=>b.w>0&&b.h>0)}
+async function exStep(selector,o){const el=$('#sim '+selector);const {c,s,r}=await snapSim();const b=el.getBoundingClientRect();
+  const boxes=[...await phiBoxes(s),markerBox((b.left+Math.min(b.width/2,60)-r.left)*s,(b.top+b.height/2-r.top)*s,s)];
+  addStep(c,Object.assign({title:clickTitle(el),boxes,reviewed:true},o),true);return el}
+async function buildExample(){if(typeof html2canvas!=='function')return false;const w=$('#simWrap');w.hidden=false;w.classList.add('off');
+  try{resetP();P.view='patients';simRender();await new Promise(r=>requestAnimationFrame(()=>r()));
+    await exStep('tr[data-id="4"]',{text:'Open Patients in the left menu and select the resident the order is for. Confirm the name and date of birth match the order before continuing.'});
+    P.pid=4;P.view='profile';simRender();await exStep('[data-action=neworder]',{text:'Review the allergy list and active medications first, then start the order.',caution:'If the new drug duplicates an active medication, call the facility before entering it.'});
+    P.view='order';P.form={drug:'Amlodipine 5 mg',qty:'30',sig:'1 tab PO daily',presc:'Dr. A. Rivera',refills:'5',allergy:true};simRender();
+    await exStep('[data-action=submit]',{text:'Enter the drug and strength, quantity, directions exactly as written, prescriber and refills. Tick the allergy check, then submit.'});
+    P.orders.unshift({id:777,pid:4,drug:'Amlodipine 5 mg',sig:'1 tab PO daily',status:'Pending'});P.view='orders';P.toast='Order sent for verification';simRender();
+    await exStep('[data-id="777"][data-action=verify]',{title:'Click “Verify”',text:'The pharmacist compares the order with the original prescription, then verifies it.'});
+    state.meta={...blankMeta(),title:'Entering a new medication order',purpose:'Enter new prescriber orders accurately so they reach pharmacist verification the same day.',scope:'Pharmacy technicians entering orders for facility residents.',dept:'Order entry',version:'1.0'};
+    return true}
+  catch(e){console.error(e);state.steps=[];return false}
+  finally{w.classList.remove('off');w.hidden=true;resetP()}}
+
+/* ---------- wiring ---------- */
+function toggleMenu(open){const m=$('#recMenu');m.hidden=open===undefined?!m.hidden:!open;$('#btnRec').setAttribute('aria-expanded',!m.hidden)}
+$('#btnRec').onclick=e=>{e.stopPropagation();if(rec.on)return;toggleMenu()};
+document.addEventListener('click',e=>{if(!e.target.closest('.wrapRec'))toggleMenu(false)});
+$('#recSim').onclick=()=>{toggleMenu(false);startSim()};
+$('#recScreen').onclick=()=>{toggleMenu(false);startScreen()};
+$('#btnEmptyRec').onclick=startSim;
+$('#btnStop').onclick=()=>rec.mode==='sim'?stopSim():stopScreen();
+$('#btnPause').onclick=togglePause;
+$('#btnCap').onclick=()=>captureNow();$('#btnPip').onclick=openPip;$('#autoT').onchange=e=>setAuto(e.target.checked);
+$('#btnAdd').onclick=()=>$('#fileImgs').click();$('#btnOpen').onclick=()=>$('#fileProj').click();$('#btnSave').onclick=saveProject;$('#btnPdf').onclick=exportPdf;$('#btnClear').onclick=clearAll;
+$('#btnExClear').onclick=()=>{dropExample();renderList();loadForm();draw()};
+document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+$('#btnUndo').onclick=undo;$('#btnDelBox').onclick=delSel;$('#btnClearCrop').onclick=clearCrop;
+document.addEventListener('keydown',e=>{if(rec.on||e.target.closest('input,textarea,#sim'))return;const k=e.key.toLowerCase();
+  if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();undo();return}
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  const map={v:'select',r:'redact',p:'pixel',h:'highlight',k:'click',c:'crop'};if(map[k]){setTool(map[k]);return}
+  if((k==='delete'||k==='backspace')&&selBox>=0){e.preventDefault();delSel();return}
+  if(k==='escape'){toggleMenu(false)}
+  if(k==='arrowup'&&state.sel>0){e.preventDefault();select(state.sel-1)}
+  if(k==='arrowdown'&&state.sel<state.steps.length-1){e.preventDefault();select(state.sel+1)}});
+window.addEventListener('beforeunload',e=>{if(dirty&&state.steps.length&&!state.example){e.preventDefault();e.returnValue=''}});
+
+
+/* ============ MAC APP: every click in any app becomes a step ============ */
+const NATIVE=!!window.sop;
+const nat={videos:new Map(),streams:[],labels:new Map(),box:null};
+let useScreenText=true;try{useScreenText=localStorage.getItem('sop.screenText')!=='0'}catch(e){}
+function permHelp(p){return new Promise(res=>{const s=document.createElement('div');s.className='scrim';
+  const row=(ok,name,why,kind)=>`<div class="perm"><span class="pdot ${ok?'ok':''}">${ok?'✓':'!'}</span><div><b>${name}</b><br><span>${why}</span></div>${ok?'':`<button class="btn" data-k="${kind}">Allow</button>`}</div>`;
+  s.innerHTML=`<div class="modal" role="dialog" aria-modal="true"><h3>Give Referensys two Mac permissions</h3>
+  ${row(p.screen,'Screen Recording','So it can take a screenshot each time you click.','screen')}
+  ${row(p.accessibility,'Accessibility','So it can notice your clicks and read button names for step titles.','accessibility')}
+  <p>Click <b>Allow</b>, switch on Referensys (it may be listed as <b>Electron</b>) in the window that opens, then come back and click <b>Reopen app</b>.</p>
+  <div class="row"><button class="btn" data-r="0">Cancel</button><button class="btn primary" data-r="re">Reopen app</button></div></div>`;
+  s.onclick=e=>{const k=e.target.closest('[data-k]');if(k){window.sop.askPermission(k.dataset.k);return}
+    const r=e.target.closest('[data-r]');if(r||e.target===s){s.remove();if(r?.dataset.r==='re')window.sop.relaunch();res()}};
+  document.body.appendChild(s)})}
+function stopStreams(){nat.streams.forEach(s=>s.getTracks().forEach(t=>t.stop()));nat.streams=[];nat.videos.clear();if(nat.box){nat.box.remove();nat.box=null}}
+async function startNative(){if(rec.on)return;
+  const p=await window.sop.permissions();
+  if(!p.hook){info('Click recording isn\'t available','The click listener didn\'t load. Quit Referensys, run <b>npm install</b> again in its folder, then reopen it.');return}
+  if(!p.screen||!p.accessibility){permHelp(p);return}
+  try{const ds=await window.sop.displays();if(!ds.length)throw new Error('no screens');
+    nat.box=document.createElement('div');nat.box.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none';document.body.appendChild(nat.box);
+    for(const d of ds){const s=await navigator.mediaDevices.getUserMedia({audio:false,video:{mandatory:{chromeMediaSource:'desktop',chromeMediaSourceId:d.sourceId,maxWidth:Math.round(d.bounds.width*d.scaleFactor),maxHeight:Math.round(d.bounds.height*d.scaleFactor),maxFrameRate:30}}});
+      const v=document.createElement('video');v.muted=true;v.playsInline=true;v.srcObject=s;nat.box.appendChild(v);await v.play();nat.streams.push(s);nat.videos.set(d.id,{v,d})}
+    await new Promise(r=>setTimeout(r,300));
+  }catch(e){console.error(e);stopStreams();permHelp({screen:false,accessibility:p.accessibility,hook:true});return}
+  dropExample();rec.on=true;rec.mode='native';rec.paused=false;rec.first=state.steps.length;nat.labels.clear();renderList();loadForm();draw();
+  try{await window.sop.startClicks({screenText:useScreenText})}catch(e){stopStreams();rec.on=false;rec.mode=null;info('Recording didn\'t start',esc(e.message||String(e)))}}
+function nativeClick(ev){if(!rec.on||rec.mode!=='native'||rec.paused)return;
+  const e=nat.videos.get(ev.displayId)||[...nat.videos.values()][0];if(!e||!e.v.videoWidth)return;
+  const {v,d}=e;const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
+  const sx=v.videoWidth/d.bounds.width,sy=v.videoHeight/d.bounds.height;
+  const s=addStep(c,{title:'Click here',auto:true,clickId:ev.clickId,boxes:[markerBox((ev.x-d.bounds.x)*sx,(ev.y-d.bounds.y)*sy,sx)]},true);
+  const l=nat.labels.get(ev.clickId);if(l){applyLabel(s,l);nat.labels.delete(ev.clickId)}
+  window.sop.count(state.steps.length-rec.first)}
+function applyLabel(s,l){if(s.auto&&l.title)s.title=l.title;if(l.app)s.app=l.app}
+function nativeLabel(l){const s=state.steps.find(x=>x.clickId===l.clickId);if(s){applyLabel(s,l);if(!rec.on){renderList();loadForm()}}else nat.labels.set(l.clickId,l)}
+async function stopNative(){if(rec.mode!=='native')return;rec.on=false;rec.mode=null;stopStreams();await window.sop.stopClicks();
+  const n=state.steps.length-rec.first;renderList();if(n)select(rec.first);else{loadForm();draw()}
+  toast(n?`${n} step${n>1?'s':''} recorded. Now cover patient details on each one.`:'No steps recorded.')}
+if(NATIVE){window.sop.onClick(nativeClick);window.sop.onLabel(nativeLabel);window.sop.onStop(stopNative);window.sop.onPause(p=>{rec.paused=p});
+  $('#recNative').hidden=false;$('#optWrap').hidden=false;$('#recScreen').hidden=true;$('#optText').checked=useScreenText;
+  $('#optText').onchange=e=>{useScreenText=e.target.checked;try{localStorage.setItem('sop.screenText',useScreenText?'1':'0')}catch(err){}};
+  $('#recNative').onclick=()=>{toggleMenu(false);startNative()};
+  window.sop.version&&window.sop.version().then(v=>{document.querySelector('.brand small').textContent='Version '+v+' · your recordings stay on this PC'});
+  window.sop.onUpdateReady&&window.sop.onUpdateReady(v=>{$('#updText').textContent=`Version ${v} has downloaded. It installs when you restart Referensys${state.steps.length&&!state.example?' (save your work first)':''}.`;$('#updBanner').hidden=false});
+  $('#btnUpd').onclick=async()=>{if(rec.on){toast('Finish recording first.');return}
+    if(dirty&&state.steps.length&&!state.example&&!await ask('Restart to update?','Steps you haven\'t saved will be lost. Save first if you want to keep them.','Restart now',true))return;
+    dirty=false;window.sop.installUpdate()};
+  $('#btnUpdLater').onclick=()=>{$('#updBanner').hidden=true;toast('The update will install the next time you close Referensys.')};}
+
+(async()=>{resetP();simRender();renderList();loadForm();draw();
+  try{await document.fonts?.ready}catch(e){}
+  if(await buildExample()){setExample(true);state.sel=0;fillMeta();dirty=false}
+  renderList();loadForm();draw()})();
+</script>
+</body>
+</html>

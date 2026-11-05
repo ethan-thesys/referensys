@@ -1,0 +1,66 @@
+{
+  "name": "referensys",
+  "productName": "Referensys",
+  "version": "1.0.1",
+  "description": "Records pharmacy procedures click by click, with PHI redaction and PDF export.",
+  "author": "Ethan",
+  "main": "main.js",
+  "private": true,
+  "repository": "https://github.com/ethan-thesys/referensys",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win nsis --x64"
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9",
+    "html2canvas": "1.4.1",
+    "jspdf": "2.5.1",
+    "uiohook-napi": "1.5.4"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "local.referensys",
+    "productName": "Referensys",
+    "npmRebuild": false,
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "panel.html",
+      "describe.ps1",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "describe.ps1",
+      "node_modules/uiohook-napi/**"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ethan-thesys",
+        "repo": "referensys",
+        "releaseType": "release"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Referensys",
+      "artifactName": "Referensys-Setup-${version}.${ext}"
+    }
+  }
+}
