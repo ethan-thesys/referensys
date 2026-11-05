@@ -242,7 +242,6 @@ body.recording .stage{align-items:flex-start}
   <button class="btn primary" id="btnStop">Done</button>
 </div>
 <div class="banner" id="updBanner" hidden><span><b>Update ready.</b> <span id="updText"></span></span><button class="btn primary" id="btnUpd">Restart and update</button><button class="btn ghost" id="btnUpdLater">Later</button></div>
-<div class="banner" id="exBanner" hidden><span><b>Example SOP.</b> This was recorded from the practice pharmacy, with names and dates already redacted. Look through it, then record your own.</span><button class="btn" id="btnExClear">Clear example</button></div>
 <main>
   <aside class="steps">
     <div class="steps-head">Steps <span class="count" id="count">0</span></div>
@@ -396,7 +395,7 @@ $('#fReviewed').onchange=e=>{const s=cur();if(s){s.reviewed=e.target.checked;$('
 document.querySelectorAll('[data-k]').forEach(el=>el.oninput=()=>{state.meta[el.dataset.k]=el.value;dirty=true});
 function fillMeta(){document.querySelectorAll('[data-k]').forEach(el=>el.value=state.meta[el.dataset.k]||'')}
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));$('#pane-step').hidden=t.dataset.tab!=='step';$('#pane-doc').hidden=t.dataset.tab!=='doc'});
-function setExample(v){state.example=v;$('#exBanner').hidden=!v}
+function setExample(v){state.example=v}
 function dropExample(){if(!state.example)return;state.steps=[];state.sel=-1;state.meta=blankMeta();fillMeta();setExample(false)}
 
 /* ============ PRACTICE PHARMACY (click capture) ============ */
@@ -592,24 +591,6 @@ async function exportPdf(){if(!state.steps.length){toast('Add at least one step 
 async function clearAll(){if(!state.steps.length)return;if(!state.example&&!await ask('Clear all steps?','Unsaved work will be lost.','Clear',true))return;
   state.steps=[];state.sel=-1;selBox=-1;state.meta=blankMeta();fillMeta();setExample(false);dirty=false;renderList();loadForm();draw();updatePip()}
 
-/* ---------- example SOP, built by actually recording the practice app ---------- */
-async function phiBoxes(s){const r=$('#sim').getBoundingClientRect();return[...$('#sim').querySelectorAll('[data-phi]')].map(el=>{const b=el.getBoundingClientRect();return{type:'redact',x:Math.round((b.left-r.left-3)*s),y:Math.round((b.top-r.top-3)*s),w:Math.round((b.width+6)*s),h:Math.round((b.height+6)*s)}}).filter(b=>b.w>0&&b.h>0)}
-async function exStep(selector,o){const el=$('#sim '+selector);const {c,s,r}=await snapSim();const b=el.getBoundingClientRect();
-  const boxes=[...await phiBoxes(s),markerBox((b.left+Math.min(b.width/2,60)-r.left)*s,(b.top+b.height/2-r.top)*s,s)];
-  addStep(c,Object.assign({title:clickTitle(el),boxes,reviewed:true},o),true);return el}
-async function buildExample(){if(typeof html2canvas!=='function')return false;const w=$('#simWrap');w.hidden=false;w.classList.add('off');
-  try{resetP();P.view='patients';simRender();await new Promise(r=>requestAnimationFrame(()=>r()));
-    await exStep('tr[data-id="4"]',{text:'Open Patients in the left menu and select the resident the order is for. Confirm the name and date of birth match the order before continuing.'});
-    P.pid=4;P.view='profile';simRender();await exStep('[data-action=neworder]',{text:'Review the allergy list and active medications first, then start the order.',caution:'If the new drug duplicates an active medication, call the facility before entering it.'});
-    P.view='order';P.form={drug:'Amlodipine 5 mg',qty:'30',sig:'1 tab PO daily',presc:'Dr. A. Rivera',refills:'5',allergy:true};simRender();
-    await exStep('[data-action=submit]',{text:'Enter the drug and strength, quantity, directions exactly as written, prescriber and refills. Tick the allergy check, then submit.'});
-    P.orders.unshift({id:777,pid:4,drug:'Amlodipine 5 mg',sig:'1 tab PO daily',status:'Pending'});P.view='orders';P.toast='Order sent for verification';simRender();
-    await exStep('[data-id="777"][data-action=verify]',{title:'Click “Verify”',text:'The pharmacist compares the order with the original prescription, then verifies it.'});
-    state.meta={...blankMeta(),title:'Entering a new medication order',purpose:'Enter new prescriber orders accurately so they reach pharmacist verification the same day.',scope:'Pharmacy technicians entering orders for facility residents.',dept:'Order entry',version:'1.0'};
-    return true}
-  catch(e){console.error(e);state.steps=[];return false}
-  finally{w.classList.remove('off');w.hidden=true;resetP()}}
-
 /* ---------- wiring ---------- */
 function toggleMenu(open){const m=$('#recMenu');m.hidden=open===undefined?!m.hidden:!open;$('#btnRec').setAttribute('aria-expanded',!m.hidden)}
 $('#btnRec').onclick=e=>{e.stopPropagation();if(rec.on)return;toggleMenu()};
@@ -621,7 +602,6 @@ $('#btnStop').onclick=()=>rec.mode==='sim'?stopSim():stopScreen();
 $('#btnPause').onclick=togglePause;
 $('#btnCap').onclick=()=>captureNow();$('#btnPip').onclick=openPip;$('#autoT').onchange=e=>setAuto(e.target.checked);
 $('#btnAdd').onclick=()=>$('#fileImgs').click();$('#btnOpen').onclick=()=>$('#fileProj').click();$('#btnSave').onclick=saveProject;$('#btnPdf').onclick=exportPdf;$('#btnClear').onclick=clearAll;
-$('#btnExClear').onclick=()=>{dropExample();renderList();loadForm();draw()};
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 $('#btnUndo').onclick=undo;$('#btnDelBox').onclick=delSel;$('#btnClearCrop').onclick=clearCrop;
 document.addEventListener('keydown',e=>{if(rec.on||e.target.closest('input,textarea,#sim'))return;const k=e.key.toLowerCase();
@@ -687,7 +667,6 @@ if(NATIVE){window.sop.onClick(nativeClick);window.sop.onLabel(nativeLabel);windo
 
 (async()=>{resetP();simRender();renderList();loadForm();draw();
   try{await document.fonts?.ready}catch(e){}
-  if(await buildExample()){setExample(true);state.sel=0;fillMeta();dirty=false}
   renderList();loadForm();draw()})();
 </script>
 </body>

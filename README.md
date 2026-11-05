@@ -6,7 +6,7 @@ Your recordings, screenshots and PDFs never leave your computer. The only thing 
 
 ## Install
 
-1. Double-click **Referensys-Setup-1.0.1.exe**.
+1. Double-click **Referensys-Setup-1.0.2.exe**.
 2. If Windows shows **"Windows protected your PC"**, click **More info**, then **Run anyway**. This appears because the app isn't from a registered publisher.
 3. Referensys installs and opens. You'll find it on your desktop and in the Start menu.
 
