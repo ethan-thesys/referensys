@@ -1,0 +1,28 @@
+# One-time: lets the 1.2.0-test.1 build update to the normal 1.2.0 release.
+# Test builds only look at releases tagged with their own label ("test"), so this publishes a
+# pre-release with that label holding the normal 1.2.0 files. Normal installs ignore pre-releases.
+name: Bridge test build to 1.2.0
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/bridge.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy the 1.2.0 release into a test-labeled pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir files && cd files
+          gh release download v1.2.0 --repo "$REPO"
+          ls -la
+          gh release delete v1.2.0-test.move --repo "$REPO" --yes --cleanup-tag 2>/dev/null || true
+          gh release create v1.2.0-test.move --repo "$REPO" --prerelease --target main \
+            --title "Update for test builds" \
+            --notes "Moves the 1.2.0-test.1 build to the normal 1.2.0 release. Normal installs ignore this." \
+            latest.yml Referensys-Setup-1.2.0.exe Referensys-Setup-1.2.0.exe.blockmap
