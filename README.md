@@ -1,12 +1,12 @@
 # Referensys for Windows
 
-Records a procedure as you do it. Every click in any program (Chrome, Edge, desktop software, anything) becomes a step with a screenshot, an orange ring where you clicked, a title such as *Click "Verify"* and written instructions. Then you cover personal details, check the wording and export a PDF.
+Records a procedure as you do it. Every click in any program (Chrome, Edge, desktop software, anything) becomes a step with a screenshot, an orange ring where you clicked, a title such as *Click "Verify"* and written instructions. Then you cover personal details, check the wording and save it to your Google Drive, where you can search, open and rename it from any computer.
 
-Your recordings, screenshots and PDFs never leave your computer. The only thing Referensys connects to is GitHub, to check for new versions of itself.
+Recordings stay on your computer until you save. When you save, Referensys uploads only the redacted screenshots, to a **Referensys SOPs** folder in your own Google Drive. It can only see files it created there, nothing else in your Drive. It also checks GitHub for new versions of itself.
 
 ## Install
 
-1. Double-click **Referensys-Setup-1.1.0.exe**.
+1. Double-click **Referensys-Setup-1.2.0.exe**.
 2. If Windows shows **"Windows protected your PC"**, click **More info**, then **Run anyway**. This appears because the app isn't from a registered publisher.
 3. Referensys installs and opens. You'll find it on your desktop and in the Start menu.
 
@@ -25,9 +25,22 @@ You never need to download Referensys again.
 2. Do the task as you normally would, in any program. Every left click adds a step.
 3. Use **Pause** on the bar for clicks you don't want recorded, then **Resume**. Click **Done** when finished.
 4. Go through each step: drag **Redact** boxes over personal details, check the title and instructions, and tick the privacy check.
-5. Click **Export PDF** and choose where to save it.
+5. Click **Save to Drive**. The first time, Google asks you to sign in and click **Allow**. The SOP and its PDF go into **Referensys SOPs** in your Google Drive.
+
+You can also click **Export PDF** to save a PDF on this computer.
 
 The small bar doesn't appear in your screenshots.
+
+## Your SOP library
+
+Click **Library** to see every SOP in your Referensys SOPs folder, newest first.
+
+- **Search** looks through titles, departments, step titles and instructions, and shows the step that matched.
+- **Open** loads an SOP back into the editor. Change anything, then **Save to Drive** again to update it and its PDF.
+- **PDF** opens the PDF in Google Drive, ready to print or share.
+- **Rename** changes the name of both the SOP and its PDF.
+
+Any Google account works, including Gmail. Click your email at the top right to add another account, switch which Drive you save to, or sign out. Each account has its own library.
 
 ## Good to know
 
@@ -37,5 +50,7 @@ The small bar doesn't appear in your screenshots.
 - Some programs don't share button names with Windows. Those steps get a title like *Click in ProgramName* for you to edit.
 - If a program runs **as administrator**, Windows won't let Referensys see clicks inside it. Right-click Referensys and choose **Run as administrator** to record it.
 - **Sample app** in the Record menu (also linked from the start screen) is a built-in app with fake data for practicing.
-- **Save** keeps a project you can reopen later with **Open**. Saving makes redactions permanent and never stores the unredacted screenshots.
+- **Saving makes redactions permanent.** The unredacted screenshots are never uploaded, so a redaction box can't be removed after saving. To fix one, replace that step.
+- Saving is blocked until every step has passed the privacy check.
+- If Google Drive can't be reached, Referensys offers to save a copy to this PC. Open it later with **Library → Open a file from this PC**.
 - To uninstall: **Settings → Apps → Installed apps → Referensys → Uninstall**.

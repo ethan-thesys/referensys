@@ -19,5 +19,17 @@ contextBridge.exposeInMainWorld('sop', {
   // floating panel
   pause: () => ipcRenderer.send('panel:pause'),
   done: () => ipcRenderer.send('panel:done'),
-  onPanelState: cb => on('panel:state', cb)
+  onPanelState: cb => on('panel:state', cb),
+  // Google Drive
+  drive: {
+    accounts: () => ipcRenderer.invoke('drive:accounts'),
+    signIn: () => ipcRenderer.invoke('drive:signIn'),
+    switchTo: email => ipcRenderer.invoke('drive:switchTo', email),
+    signOut: email => ipcRenderer.invoke('drive:signOut', email),
+    list: () => ipcRenderer.invoke('drive:list'),
+    save: data => ipcRenderer.invoke('drive:save', data),
+    open: id => ipcRenderer.invoke('drive:open', id),
+    pdf: pdfId => ipcRenderer.invoke('drive:pdf', pdfId),
+    rename: data => ipcRenderer.invoke('drive:rename', data)
+  }
 });

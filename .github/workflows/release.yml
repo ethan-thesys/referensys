@@ -19,6 +19,11 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Add the Google sign-in key
+        run: node -e "const {GOOGLE_CLIENT_ID:id,GOOGLE_CLIENT_SECRET:secret}=process.env;if(!id||!secret){console.error('Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET under Settings > Secrets and variables > Actions');process.exit(1)}require('fs').writeFileSync('google-client.json',JSON.stringify({id,secret}))"
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       - run: npx electron-builder --win nsis --x64 --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

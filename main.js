@@ -1,11 +1,12 @@
 // Referensys — Windows desktop app.
 // While recording, every left click anywhere on screen tells the window to grab a screenshot
 // at that instant; a helper then names what was clicked (via Windows UI Automation) for the step title.
-// Nothing here talks to the internet.
+// The window itself never talks to the internet; Google Drive saving lives in drive.js.
 const { app, BrowserWindow, ipcMain, screen, desktopCapturer, shell, session } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const readline = require('readline');
+const drive = require('./drive');
 
 let uIOhook = null;
 try { ({ uIOhook } = require('uiohook-napi')); } catch (e) { console.error('Click listener failed to load:', e); }
@@ -168,6 +169,7 @@ function endRecording() {
 }
 
 // ---------- messages from the windows ----------
+drive.register(ipcMain, () => win);
 ipcMain.handle('perm', () => ({ screen: true, accessibility: true, hook: !!uIOhook, mac: false }));
 ipcMain.handle('perm:ask', () => {});
 ipcMain.handle('relaunch', () => { app.relaunch(); app.exit(0); });

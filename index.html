@@ -213,6 +213,37 @@ body.recording .stage{align-items:flex-start}
 .perm span{color:var(--muted);font-size:12.5px}
 .pdot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--warn-bg);color:var(--warn);flex:none}
 .pdot.ok{background:var(--ok-bg);color:var(--ok)}
+/* ---------- Google Drive: account menu + SOP library ---------- */
+.wrapAcct{position:relative}
+#btnAcct{max-width:240px;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+#btnAcct .av{width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.acctMenu{right:0}
+.acctMenu .acc{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+.acctMenu .acc.on{background:var(--soft);font-weight:600}
+.acctMenu hr{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
+#lib{flex:1;min-height:0;overflow:auto;background:var(--bg);padding-block:22px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body.libOn main{display:none!important}
+#lib .in{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+#lib .lh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}#lib h2{margin:0;font-size:20px;flex:1;min-width:160px}
+#libQ{width:100%;font-size:16px;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+#lib .chips{display:flex;gap:6px;flex-wrap:wrap}
+#lib .chips button{border:1px solid var(--line);background:var(--panel);border-radius:99px;padding:4px 12px;cursor:pointer;font-weight:500}
+#lib .chips button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+#lib .rows{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+#lib .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;padding:12px 14px;border-top:1px solid var(--line);align-items:center}
+#lib .row:first-child{border-top:0}#lib .row.fresh{background:var(--ok-bg)}#lib .row.cur .t::after{content:" · open now";font-weight:400;color:var(--muted);font-size:13px}
+#lib .t{font-weight:600;font-size:15px;overflow-wrap:anywhere}#lib .m{color:var(--muted);font-size:12.5px}
+#lib .hit{grid-column:1/-1;font-size:13px;background:var(--bg);border-radius:7px;padding:6px 9px}#lib .hit b{font:500 11px var(--mono);color:var(--muted);margin-right:6px}
+#lib mark{background:#ffe08a;color:#1d2939;border-radius:2px;padding:0 1px}
+#lib .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}#lib .acts .btn{padding:5px 10px;font-size:13px}
+#lib .ren{display:flex;gap:6px;grid-column:1/-1}#lib .ren input{flex:1;min-width:0;border:1px solid var(--accent);border-radius:7px;padding:6px 9px;background:var(--bg);font-size:15px}
+#lib .none{padding:26px 18px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:12px;align-items:center}
+#lib .foot{display:flex;gap:6px 16px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:13px}
+.busy{display:flex;align-items:center;gap:12px}.spin{width:20px;height:20px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+.nameIn{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg);font-size:15px}
+@media (max-width:640px){#lib .row{grid-template-columns:1fr}#lib .acts{justify-content:flex-start}.top>.wrapAcct{flex:1 1 100%}#btnAcct{max-width:none;width:100%;justify-content:center}}
 </style>
 </head>
 <body>
@@ -229,10 +260,11 @@ body.recording .stage{align-items:flex-start}
     </div>
   </div>
   <button class="btn" id="btnAdd">Add screenshots</button>
-  <button class="btn" id="btnOpen">Open</button>
-  <button class="btn" id="btnSave">Save</button>
-  <button class="btn primary" id="btnPdf">Export PDF</button>
+  <button class="btn" id="btnLib">Library</button>
+  <button class="btn primary" id="btnSave">Save to Drive</button>
+  <button class="btn" id="btnPdf">Export PDF</button>
   <button class="btn ghost danger" id="btnClear">Clear</button>
+  <div class="wrapAcct"><button class="btn ghost" id="btnAcct" aria-haspopup="true" aria-expanded="false">Sign in</button><div class="menu acctMenu" id="acctMenu" hidden></div></div>
 </header>
 <div class="recbar" id="recbar" hidden>
   <div class="grow"><span class="dot"></span><b id="recLabel">Recording</b><span class="muted" id="recStatus"></span></div>
@@ -243,6 +275,7 @@ body.recording .stage{align-items:flex-start}
   <button class="btn primary" id="btnStop">Done</button>
 </div>
 <div class="banner" id="updBanner" hidden><span><b>Update ready.</b> <span id="updText"></span></span><button class="btn primary" id="btnUpd">Restart and update</button><button class="btn ghost" id="btnUpdLater">Later</button></div>
+<section id="lib" hidden></section>
 <main>
   <aside class="steps">
     <div class="steps-head">Steps <span class="count" id="count">0</span></div>
@@ -269,10 +302,11 @@ body.recording .stage{align-items:flex-start}
           <li>Click <b>Record</b> and choose <b>My screen</b>.</li>
           <li>Do the task as you normally would, in any program. Each click becomes a step.</li>
           <li>Click <b>Done</b>. Drag <b>Redact</b> boxes over personal details, check each step's wording, then tick the privacy check.</li>
-          <li><b>Export PDF</b> to share with trainees, and <b>Save</b> to keep a copy you can reopen and edit later.</li>
+          <li><b>Save to Drive</b>. The SOP and its PDF go into a <b>Referensys SOPs</b> folder in your Google Drive, ready to share.</li>
         </ol>
         <div><button class="btn rec" id="btnEmptyRec">● Record</button></div>
         <button class="trylink" id="btnTrySample">New to Referensys? Practice on the sample app (fake data)</button>
+        <button class="trylink" id="btnEmptyLib">Or open your SOP library</button>
       </div>
       <div id="simWrap" hidden>
         <p class="simHint">Use this like the real system. Every click is saved as a step on the left.</p>
@@ -570,17 +604,19 @@ async function saveProject(){if(!state.steps.length){toast('Nothing to save yet.
   if(await saveBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),fname()+'.sop.json')){dirty=false;toast('Project saved.')}}
 async function loadProject(f){try{const d=JSON.parse(await f.text());if(d.app!=='referensys'&&d.app!=='sop-builder')throw 0;
     if(state.steps.length&&!state.example&&!await ask('Open project','This replaces the SOP you have open now.','Replace',true))return;
-    const steps=[];for(const st of d.steps){const img=new Image();img.src=st.image;await img.decode();const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);
-      const s=newStep(c,{title:st.title||'',text:st.text||'',caution:st.caution||'',reviewed:!!st.reviewed});refreshThumb(s);steps.push(s)}
-    setExample(false);state.meta={...blankMeta(),...d.meta};state.steps=steps;state.sel=steps.length?0:-1;selBox=-1;fillMeta();renderList();loadForm();draw();dirty=false;toast('Project opened.')}
+    await loadData(d);drv.cur=null;showLib(false);toast('Project opened.')}
   catch(e){toast('That file is not a Referensys project.')}}
+async function loadData(d){const steps=[];for(const st of d.steps){const img=new Image();img.src=st.image;await img.decode();const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);
+      const s=newStep(c,{title:st.title||'',text:st.text||'',caution:st.caution||'',reviewed:!!st.reviewed});refreshThumb(s);steps.push(s)}
+    setExample(false);state.meta={...blankMeta(),...d.meta};state.steps=steps;state.sel=steps.length?0:-1;selBox=-1;fillMeta();renderList();loadForm();draw();dirty=false}
 $('#fileProj').onchange=e=>{if(e.target.files[0])loadProject(e.target.files[0]);e.target.value=''};
 const pdfT=s=>String(s||'').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-').replace(/…/g,'...').replace(/[^\x00-\xFF]/g,'');
 async function exportPdf(){if(!state.steps.length){toast('Add at least one step first.');return}
   if(!window.jspdf){toast('The PDF library did not load. Check your connection and reload.');return}
   const un=state.steps.filter(s=>!s.reviewed).length;
   if(un&&!await ask('Some steps haven\'t had the privacy check',`${un} step${un>1?'s have':' has'} not been marked as checked. Personal details could appear in the PDF.`,'Export anyway',true))return;
-  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',format:'letter'});const W=612,H=792,M=50,IND=34,TW=W-2*M-IND;let y=M;
+  if(await saveBlob(buildPdf().output('blob'),fname()+'.pdf'))toast('PDF ready.')}
+function buildPdf(){const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',format:'letter'});const W=612,H=792,M=50,IND=34,TW=W-2*M-IND;let y=M;
   const teal=[13,107,107];
   doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(...teal);doc.text('STANDARD OPERATING PROCEDURE',M,y);y+=22;
   doc.setFontSize(20);doc.setTextColor(20,33,43);const tl=doc.splitTextToSize(pdfT(state.meta.title||'Untitled SOP'),W-2*M);doc.text(tl,M,y);y+=tl.length*24;
@@ -602,13 +638,126 @@ async function exportPdf(){if(!state.steps.length){toast('Add at least one step 
   const n=doc.getNumberOfPages();for(let p=1;p<=n;p++){doc.setPage(p);doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(110,120,128);
     doc.text(pdfT(`${state.meta.title||'SOP'}${state.meta.version?' · v'+state.meta.version:''}`).replace('·','-'),M,H-28);doc.text(`Page ${p} of ${n}`,W-M,H-28,{align:'right'});
     if(p===n)doc.text('Screenshots were redacted for privacy before distribution. Generated '+new Date().toLocaleDateString()+'.',M,H-40)}
-  if(await saveBlob(doc.output('blob'),fname()+'.pdf'))toast('PDF ready.')}
+  return doc}
 async function clearAll(){if(!state.steps.length)return;if(!state.example&&!await ask('Clear all steps?','Unsaved work will be lost.','Clear',true))return;
-  state.steps=[];state.sel=-1;selBox=-1;state.meta=blankMeta();fillMeta();setExample(false);dirty=false;renderList();loadForm();draw();updatePip()}
+  state.steps=[];state.sel=-1;selBox=-1;state.meta=blankMeta();fillMeta();setExample(false);dirty=false;drv.cur=null;renderList();loadForm();draw();updatePip()}
+
+/* ---------- Google Drive: save, library, rename, accounts ---------- */
+const D=window.sop&&window.sop.drive;
+const drv={acct:null,list:null,cur:null,fresh:null,q:'',dept:'',ren:-1,loading:false,err:null};
+function libStem(t){t=t.toLowerCase();return t.length>4?t.replace(/(ing|ed|al|es|e|s)$/,''):t}
+function libSearch(list,q,dept){const toks=q.toLowerCase().split(/\s+/).filter(Boolean).map(libStem);
+  return list.filter(s=>!dept||s.dept===dept).map(s=>{const steps=s.steps||[];const hay=[s.name,s.dept,s.purpose,...steps].join(' \n ').toLowerCase();
+    if(toks.some(t=>!hay.includes(t)))return null;let hit=null;
+    if(toks.length&&!toks.every(t=>s.name.toLowerCase().includes(t))){const i=steps.findIndex(st=>toks.some(t=>st.toLowerCase().includes(t)));if(i>=0)hit={n:i+1,text:steps[i]}}
+    return {s,hit}}).filter(Boolean)}
+function libMark(text,q){let h=esc(text);q.toLowerCase().split(/\s+/).filter(Boolean).map(libStem).forEach(t=>{h=h.replace(new RegExp('('+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig'),'<mark>$1</mark>')});return h.replace(/<\/mark>(\w+)/g,'$1</mark>')}
+const ago=iso=>{const d=new Date(iso);if(isNaN(d))return'';const m=(Date.now()-d)/6e4;if(m<1)return'just now';if(m<60)return Math.round(m)+' min ago';if(m<1440&&d.getDate()===new Date().getDate())return'today';return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:d.getFullYear()===new Date().getFullYear()?undefined:'numeric'})};
+function working(msg){const s=document.createElement('div');s.className='scrim';s.innerHTML=`<div class="modal" role="status"><div class="busy"><span class="spin"></span><b>${esc(msg)}</b></div></div>`;document.body.appendChild(s);return()=>s.remove()}
+function nameModal(title,val,ok){return new Promise(res=>{const s=document.createElement('div');s.className='scrim';
+  s.innerHTML=`<div class="modal" role="dialog" aria-modal="true"><h3>${esc(title)}</h3><input class="nameIn" id="nmIn" value="${esc(val)}" placeholder="e.g. Approving a request"><div class="row"><button class="btn" data-r="0">Cancel</button><button class="btn primary" data-r="1">${esc(ok)}</button></div></div>`;
+  const i=s.querySelector('#nmIn');const fin=v=>{s.remove();res(v)};
+  s.onclick=e=>{const b=e.target.closest('[data-r]');if(b)fin(b.dataset.r==='1'?i.value.trim()||null:null);else if(e.target===s)fin(null)};
+  i.onkeydown=e=>{if(e.key==='Enter')fin(i.value.trim()||null);if(e.key==='Escape')fin(null)};document.body.appendChild(s);i.focus();i.select()})}
+
+async function refreshAcct(){if(!D)return;const a=await D.accounts();drv.acct=a;const b=$('#btnAcct');
+  b.innerHTML=a.active?`<span class="av">${esc(a.active[0].toUpperCase())}</span><span>${esc(a.active)}</span>`:'Sign in with Google';
+  b.title=a.active?'Saving to the Google Drive of '+a.active:'Sign in to save SOPs to your Google Drive'}
+async function signIn(){const close=working('Finish signing in in your browser…');const r=await D.signIn();close();
+  if(r.error){if(r.code!=='denied')info('Sign-in didn\'t finish',esc(r.error));return null}
+  drv.list=null;await refreshAcct();toast('Signed in as '+r.email);return r.email}
+function acctMenu(open){const m=$('#acctMenu');m.hidden=open===undefined?!m.hidden:!open;$('#btnAcct').setAttribute('aria-expanded',!m.hidden);if(m.hidden)return;
+  const a=drv.acct||{list:[]};
+  m.innerHTML=(a.list.length?`<span style="padding:6px 12px 2px;font-size:12px;color:var(--muted)">Save to the Google Drive of</span>`+a.list.map(e=>`<button class="acc ${e===a.active?'on':''}" data-sw="${esc(e)}"><b>${esc(e)}</b>${e===a.active?'<span>✓</span>':''}</button>`).join('')+'<hr>':'')
+    +`<button data-act="add"><b>${a.list.length?'Add another Google account':'Sign in with Google'}</b><span>Any Google account works, including Gmail.</span></button>`
+    +(a.active?`<button data-act="out"><b>Sign out of ${esc(a.active)}</b><span>Your SOPs stay in that Google Drive.</span></button>`:'');
+  m.onclick=async e=>{const sw=e.target.closest('[data-sw]'),act=e.target.closest('[data-act]');if(!sw&&!act)return;acctMenu(false);
+    if(sw){if(sw.dataset.sw===a.active)return;const r=await D.switchTo(sw.dataset.sw);if(r.error)return info('Couldn\'t switch',esc(r.error));drv.list=null;await refreshAcct();toast('Now saving to '+r.email);if(libOn())loadLib()}
+    else if(act.dataset.act==='add'){if(await signIn()&&libOn())loadLib()}
+    else if(act.dataset.act==='out'){if(!await ask('Sign out of '+a.active+'?','Referensys will stop saving to this Google Drive. Your SOPs stay there, and you can sign in again any time.','Sign out',true))return;await D.signOut(a.active);drv.list=null;await refreshAcct();if(libOn())loadLib()}}}
+$('#btnAcct').onclick=e=>{e.stopPropagation();if(!D){info('Google Drive','Saving to Google Drive works in the installed Windows app.');return}acctMenu()};
+document.addEventListener('click',e=>{if(!e.target.closest('.wrapAcct'))acctMenu(false)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){acctMenu(false);if(libOn()&&!document.querySelector('.scrim')&&state.steps.length)showLib(false)}});
+
+const libOn=()=>!$('#lib').hidden;
+function showLib(on){if(on&&rec.on)return;$('#lib').hidden=!on;document.body.classList.toggle('libOn',on);$('#btnLib').classList.toggle('primary',on);$('#btnLib').textContent=on?'Back to editor':'Library';
+  if(on){drv.q='';drv.dept='';drv.ren=-1;loadLib(true)}else drv.fresh=null}
+async function loadLib(fresh){const L=$('#lib');
+  if(fresh&&drv.list&&D&&drv.acct&&drv.acct.active){renderLib();D.list().then(r=>{if(r.error||!libOn()||drv.ren!==-1)return;drv.list=r.sops;renderLib(true)});return}
+  if(!D){L.innerHTML=libShell(`<div class="none"><b>Your SOP library lives in Google Drive.</b><span>It works in the installed Windows app.</span></div>`);wireLibShell();return}
+  if(!drv.acct)await refreshAcct();
+  if(!drv.acct.active){L.innerHTML=libShell(`<div class="none"><b>Sign in to see your SOPs</b><span>Referensys keeps your SOPs in a <b>Referensys SOPs</b> folder in your Google Drive. It can only see files it created.</span><button class="btn primary" id="libSign">Sign in with Google</button></div>`);
+    wireLibShell();$('#libSign').onclick=async()=>{if(await signIn())loadLib()};return}
+  if(!drv.list){L.innerHTML=libShell(`<div class="none"><div class="busy"><span class="spin"></span>Loading your SOPs…</div></div>`);wireLibShell();
+    const r=await D.list();if(!libOn())return;
+    if(r.error){L.innerHTML=libShell(`<div class="none"><b>Couldn't load your library</b><span>${esc(r.error)}</span><button class="btn" id="libRetry">Try again</button></div>`);wireLibShell();
+      $('#libRetry').onclick=loadLib;if(r.code==='signed_out')await refreshAcct();return}
+    drv.list=r.sops}
+  renderLib()}
+function renderLib(keep){const L=$('#lib');const foc=keep&&document.activeElement&&document.activeElement.id==='libQ',pos=foc?$('#libQ').selectionStart:0;
+  L.innerHTML=libShell(`<input id="libQ" type="search" placeholder="Search titles, steps and instructions" aria-label="Search SOPs" value="${esc(drv.q)}"><div class="chips" id="libDept"></div><div class="m" id="libCount"></div><div class="rows" id="libRows"></div>`);
+  wireLibShell();const depts=[...new Set(drv.list.map(s=>s.dept).filter(Boolean))].sort();
+  $('#libDept').innerHTML=depts.length?`<button aria-pressed="${!drv.dept}" data-d="">All</button>`+depts.map(d=>`<button aria-pressed="${drv.dept===d}" data-d="${esc(d)}">${esc(d)}</button>`).join(''):'';
+  $('#libDept').onclick=e=>{const b=e.target.closest('[data-d]');if(!b)return;drv.dept=b.dataset.d;$('#libDept').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));libRows()};
+  $('#libQ').oninput=e=>{drv.q=e.target.value;drv.ren=-1;libRows()};libRows();if(!keep||foc){$('#libQ').focus();if(foc)$('#libQ').setSelectionRange(pos,pos)}}
+function libShell(body){return `<div class="in"><div class="lh"><h2>SOP library</h2><button class="btn" id="libClose">Back to editor</button><button class="btn rec" id="libRec">● Record new SOP</button></div>${body}
+  <div class="foot">${drv.acct&&drv.acct.active?`<span>Stored in <b>Referensys SOPs</b> in the Google Drive of ${esc(drv.acct.active)}.</span>`:''}<button class="trylink" id="libFile">Open a file from this PC</button></div></div>`}
+function wireLibShell(){$('#libClose').onclick=()=>showLib(false);$('#libRec').onclick=e=>{e.stopPropagation();showLib(false);toggleMenu(true)};$('#libFile').onclick=()=>$('#fileProj').click()}
+function libRows(){const list=drv.list,res=libSearch(list,drv.q,drv.dept);
+  $('#libCount').textContent=!list.length?'':drv.q||drv.dept?`${res.length} of ${list.length} SOPs`:`${list.length} SOP${list.length>1?'s':''} · newest first`;
+  $('#libRows').innerHTML=!list.length?`<div class="none"><b>No SOPs yet</b><span>Record a procedure, then click <b>Save to Drive</b>. It shows up here.</span></div>`
+   :res.length?res.map(({s,hit})=>{const i=list.indexOf(s);return i===drv.ren
+    ?`<div class="row"><div class="ren"><input id="libRenIn" value="${esc(s.name)}" aria-label="New name"><button class="btn primary" id="libRenOk">Save</button><button class="btn" id="libRenNo">Cancel</button></div></div>`
+    :`<div class="row ${s.id===drv.fresh?'fresh':''} ${drv.cur&&s.id===drv.cur.id?'cur':''}"><div style="min-width:0"><div class="t">${libMark(s.name,drv.q)}</div><div class="m">${s.dept?libMark(s.dept,drv.q)+' · ':''}${(s.steps||[]).length} steps · Updated ${ago(s.updated)}</div></div>
+      <div class="acts"><button class="btn primary" data-o="${i}">Open</button><button class="btn" data-p="${i}">PDF</button><button class="btn" data-n="${i}">Rename</button></div>
+      ${hit?`<div class="hit"><b>STEP ${hit.n}</b>${libMark(hit.text,drv.q)}</div>`:''}</div>`}).join('')
+   :`<div class="none">No SOPs match “${esc(drv.q)}”. Try fewer words.</div>`;
+  const R=$('#libRows');
+  R.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>openFromDrive(list[+b.dataset.o]));
+  R.querySelectorAll('[data-p]').forEach(b=>b.onclick=async()=>{const r=await D.pdf(list[+b.dataset.p].pdfId);if(r.error)info('Couldn\'t open the PDF',esc(r.error))});
+  R.querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{drv.ren=+b.dataset.n;libRows();const i=$('#libRenIn');i.focus();i.select()});
+  const ok=async()=>{const s=list[drv.ren],v=$('#libRenIn').value.trim();drv.ren=-1;if(!v||v===s.name){libRows();return}
+    const close=working('Renaming…');const r=await D.rename({id:s.id,name:v});close();
+    if(r.error){info('Couldn\'t rename',esc(r.error));libRows();return}
+    s.name=r.name;if(drv.cur&&drv.cur.id===s.id){state.meta.title=r.name;fillMeta()}libRows();toast('Renamed. The SOP and its PDF both use the new name.')};
+  if($('#libRenOk')){$('#libRenOk').onclick=ok;$('#libRenNo').onclick=()=>{drv.ren=-1;libRows()};$('#libRenIn').onkeydown=e=>{if(e.key==='Enter')ok();if(e.key==='Escape'){e.stopPropagation();drv.ren=-1;libRows()}}}}
+
+async function openFromDrive(s){if(drv.cur&&drv.cur.id===s.id&&state.steps.length){showLib(false);return}
+  if(state.steps.length&&dirty&&!state.example&&!await ask('Open “'+s.name+'”?','This replaces the SOP you have open now. Changes you haven\'t saved will be lost.','Open',true))return;
+  const close=working('Opening “'+s.name+'”…');const r=await D.open(s.id);
+  if(r.error){close();info('Couldn\'t open this SOP',esc(r.error));if(r.code==='missing'){drv.list=null;loadLib()}return}
+  try{const d=JSON.parse(r.text);await loadData(d)}catch(e){close();info('Couldn\'t open this SOP','The file in Google Drive isn\'t a Referensys SOP.');return}
+  close();state.meta.title=s.name;fillMeta();drv.cur={id:s.id,pdfId:s.pdfId,email:r.email};showLib(false);toast('Opened “'+s.name+'”.')}
+
+async function saveToDrive(){if(!D)return saveProject();
+  if(!state.steps.length){toast('Record or add a step first.');return}
+  const un=state.steps.filter(s=>!s.reviewed).length;
+  if(un){const i=state.steps.findIndex(s=>!s.reviewed);state.sel=i;selBox=-1;renderList();loadForm();draw();
+    info(`${un} step${un>1?'s still need':' still needs'} the privacy check`,'Referensys won\'t upload a screenshot to Google Drive until its personal details are covered and the privacy box is ticked. The first one is selected now.');return}
+  if(!window.jspdf){toast('The PDF library did not load. Restart Referensys.');return}
+  if(!drv.acct)await refreshAcct();
+  if(!drv.acct.active&&!await signIn())return;
+  if(!state.meta.title){const t=await nameModal('Name this SOP','','Save');if(!t)return;state.meta.title=t;fillMeta()}
+  const unflat=state.steps.some(s=>s.boxes.length||s.crop);
+  if(unflat&&!await ask('Save to Google Drive','Saving makes your redactions and crops permanent. The unredacted screenshots are never uploaded and are removed from this session.','Save'))return;
+  const email=drv.acct.active,same=drv.cur&&drv.cur.email===email;
+  const close=working('Saving to Google Drive…');
+  try{
+    state.steps.forEach(s=>{if(s.boxes.length||s.crop){const f=flatten(s);s.img=f;s.w=f.width;s.h=f.height;s.boxes=[];s.crop=null;s.undo=[];refreshThumb(s)}});selBox=-1;renderList();draw();
+    const project=JSON.stringify({app:'referensys',v:2,meta:state.meta,steps:state.steps.map(s=>({title:s.title,text:s.text,caution:s.caution,reviewed:s.reviewed,image:s.img.toDataURL('image/png')}))});
+    const pdf=new Uint8Array(buildPdf().output('arraybuffer'));
+    const r=await D.save({id:same?drv.cur.id:null,title:state.meta.title,project,pdf,summary:{dept:state.meta.dept||'',purpose:state.meta.purpose||'',steps:state.steps.map(s=>[s.title,s.text].filter(Boolean).join('. '))}});
+    close();
+    if(r.error){if(r.code==='signed_out')await refreshAcct();
+      const again=await ask('Couldn\'t save to Google Drive',esc(r.error)+' Your SOP is still open here. You can try again, or save a copy to this PC.','Save a copy to this PC');
+      if(again){const b=new Blob([project],{type:'application/json'});if(await saveBlob(b,fname()+'.sop.json'))toast('Copy saved to this PC.')}return}
+    drv.cur={id:r.id,pdfId:r.pdfId,email:r.email};state.meta.title=r.name;fillMeta();dirty=false;drv.fresh=r.id;drv.list=null;
+    showLib(true);drv.fresh=r.id;toast(same?'Saved. The SOP and its PDF are updated in Google Drive.':'Saved to Google Drive. Only redacted screenshots were uploaded.')}
+  catch(e){close();info('Couldn\'t save',esc(e.message||String(e)))}}
 
 /* ---------- wiring ---------- */
 function toggleMenu(open){const m=$('#recMenu');m.hidden=open===undefined?!m.hidden:!open;$('#btnRec').setAttribute('aria-expanded',!m.hidden)}
-$('#btnRec').onclick=e=>{e.stopPropagation();if(rec.on)return;toggleMenu()};
+$('#btnRec').onclick=e=>{e.stopPropagation();if(rec.on)return;if(libOn())showLib(false);toggleMenu()};
 document.addEventListener('click',e=>{if(!e.target.closest('.wrapRec'))toggleMenu(false)});
 $('#recSim').onclick=()=>{toggleMenu(false);startSim()};
 $('#recScreen').onclick=()=>{toggleMenu(false);startScreen()};
@@ -616,7 +765,7 @@ $('#btnEmptyRec').onclick=e=>{e.stopPropagation();toggleMenu(true);$('#btnRec').
 $('#btnStop').onclick=()=>rec.mode==='sim'?stopSim():stopScreen();
 $('#btnPause').onclick=togglePause;
 $('#btnCap').onclick=()=>captureNow();$('#btnPip').onclick=openPip;$('#autoT').onchange=e=>setAuto(e.target.checked);
-$('#btnAdd').onclick=()=>$('#fileImgs').click();$('#btnOpen').onclick=()=>$('#fileProj').click();$('#btnSave').onclick=saveProject;$('#btnPdf').onclick=exportPdf;$('#btnClear').onclick=clearAll;
+$('#btnAdd').onclick=()=>$('#fileImgs').click();$('#btnLib').onclick=()=>showLib(!libOn());$('#btnEmptyLib').onclick=()=>showLib(true);$('#btnSave').onclick=saveToDrive;$('#btnPdf').onclick=exportPdf;$('#btnClear').onclick=clearAll;
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 $('#btnUndo').onclick=undo;$('#btnDelBox').onclick=delSel;$('#btnClearCrop').onclick=clearCrop;
 document.addEventListener('keydown',e=>{if(rec.on||e.target.closest('input,textarea,#sim'))return;const k=e.key.toLowerCase();
@@ -673,7 +822,7 @@ if(NATIVE){window.sop.onClick(nativeClick);window.sop.onLabel(nativeLabel);windo
   $('#recNative').hidden=false;$('#optWrap').hidden=false;$('#recScreen').hidden=true;$('#optText').checked=useScreenText;
   $('#optText').onchange=e=>{useScreenText=e.target.checked;try{localStorage.setItem('sop.screenText',useScreenText?'1':'0')}catch(err){}};
   $('#recNative').onclick=()=>{toggleMenu(false);startNative()};
-  window.sop.version&&window.sop.version().then(v=>{document.querySelector('.brand small').textContent='Version '+v+' · your recordings stay on this PC'});
+  window.sop.version&&window.sop.version().then(v=>{document.querySelector('.brand small').textContent='Version '+v});refreshAcct();
   window.sop.onUpdateReady&&window.sop.onUpdateReady(v=>{$('#updText').textContent=`Version ${v} has downloaded. It installs when you restart Referensys${state.steps.length&&!state.example?' (save your work first)':''}.`;$('#updBanner').hidden=false});
   $('#btnUpd').onclick=async()=>{if(rec.on){toast('Finish recording first.');return}
     if(dirty&&state.steps.length&&!state.example&&!await ask('Restart to update?','Steps you haven\'t saved will be lost. Save first if you want to keep them.','Restart now',true))return;
