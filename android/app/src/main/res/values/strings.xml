@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Referensys</string>
+    <string name="title_activity_main">Referensys</string>
+    <string name="package_name">io.github.referensys</string>
+    <string name="custom_url_scheme">io.github.referensys</string>
+    <string name="recorder_label">Referensys</string>
+    <string name="recorder_summary">Records taps for SOPs while you\'re recording</string>
+    <string name="recorder_description">Referensys uses this to see which button you tap in other apps and take a screenshot for each step of an SOP. It only does this after you press Record in Referensys, and stops when you tap Done. Screenshots stay on this device until you save, and only redacted ones are uploaded to your Google Drive.</string>
+</resources>

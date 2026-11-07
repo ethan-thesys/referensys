@@ -1,0 +1,37 @@
+# Test builds of the Android app from the "android" branch. When signed, the APK is published as a
+# pre-release named "android-test" (normal installs of either app ignore pre-releases).
+name: Android test build
+on:
+  push:
+    branches: [android]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - id: build
+        run: .github/actions-android-build.sh
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      - name: Publish the test APK
+        if: steps.build.outputs.apk != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete android-test --yes --cleanup-tag 2>/dev/null || true
+          gh release create android-test --prerelease --target "$GITHUB_SHA" --title "Android test build" \
+            --notes "Test build of the Android app from the android branch. Not an official release." \
+            "${{ steps.build.outputs.apk }}#Referensys-Android-test.apk"

@@ -1,0 +1,6 @@
+{
+  "appId": "io.github.referensys",
+  "appName": "Referensys",
+  "webDir": "www",
+  "android": { "allowMixedContent": false, "captureInput": true, "webContentsDebuggingEnabled": false }
+}

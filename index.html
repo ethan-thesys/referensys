@@ -622,6 +622,7 @@ $('#stage').addEventListener('drop',async e=>{e.preventDefault();for(const f of 
 /* ---------- save / open / export ---------- */
 function fname(){return(state.meta.title||'SOP').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')||'SOP'}
 async function saveBlob(blob,name){
+  if(window.sop&&window.sop.saveFile){try{return await window.sop.saveFile(blob,name)}catch(e){toast('Couldn\'t save: '+(e.message||e));return false}}
   if(window.claude?.use){try{const d=await window.claude.use('downloads');if(d){await d.save({filename:name,data:blob});return true}}
     catch(e){if(e?.code==='declined')return false;if(e&&e.code&&!['unavailable','not_granted','capability_disabled','capability_removed'].includes(e.code)){toast('Could not save: '+(e.message||e.code));return false}}}
   try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);return true}
@@ -722,7 +723,7 @@ function renderSettings(){const P=document.getElementById('settingsPanel');if(!P
   if(u.state==='dev'||!window.sop||!window.sop.checkUpdates){line='<span class="pill">Updates work in the installed app</span>';btn=''}
   else if(u.state==='checking')line='<span class="pill">Checking…</span>',btn='';
   else if(u.state==='downloading'){line=`<span class="pill new">Downloading version ${esc(u.version||'')}</span><span class="m">${u.percent||0}%</span>`;extra=`<div class="bar"><i style="width:${u.percent||0}%"></i></div>`;btn=''}
-  else if(u.state==='ready'){line=`<span class="pill new">Version ${esc(u.version)} is ready</span>`;btn=`<button class="btn primary" id="setInstall">Restart and update</button>`;extra='<p class="lead">Your work saves to Google Drive first. Or close Referensys whenever you like, and the update installs then.</p>'}
+  else if(u.state==='ready'){line=`<span class="pill new">Version ${esc(u.version)} is ready</span>`;btn=`<button class="btn primary" id="setInstall">${window.sop&&window.sop.platform==='android'?'Install update':'Restart and update'}</button>`;extra=window.sop&&window.sop.platform==='android'?'<p class="lead">Your work saves to Google Drive first. Android then asks you to tap <b>Update</b>.</p>':'<p class="lead">Your work saves to Google Drive first. Or close Referensys whenever you like, and the update installs then.</p>'}
   else if(u.state==='latest')line=`<span class="pill ok">You're up to date</span><span class="lead">Checked ${esc(ago(new Date(u.checkedAt).toISOString()))}</span>`;
   else if(u.state==='error')line=`<span class="pill warn">Couldn't check</span><span class="lead">${esc(u.error||'')}</span>`;
   else line='<span class="pill">Not checked yet</span>';
@@ -731,7 +732,7 @@ function renderSettings(){const P=document.getElementById('settingsPanel');if(!P
    <section><h4>Appearance</h4><div class="seg" role="radiogroup" aria-label="Appearance">${THEMES.map(([k,l,i])=>`<button role="radio" aria-checked="${getTheme()===k}" data-theme-pick="${k}"><span aria-hidden="true">${i}</span>${l}</button>`).join('')}</div>
      <p class="lead">${getTheme()==='system'?'Follows your Windows light or dark setting.':'Saved on this computer.'}</p></section>
    <section><h4>Updates</h4><div class="updLine"><span class="ver">Version ${esc(ver)}</span>${line}</div>${extra}<div>${btn}</div>
-     <p class="lead">Referensys checks for updates when it opens and every 4 hours, and downloads them in the background. Click Check for updates to get one right away.</p></section>`;
+     <p class="lead">Referensys checks for updates when it opens and every 4 hours, and downloads them in the background. ${window.sop&&window.sop.platform==='android'?'Tap':'Click'} Check for updates to get one right away.</p></section>`;
   const $$=q=>P.querySelector(q);
   P.querySelectorAll('[data-theme-pick]').forEach(b=>b.onclick=()=>setTheme(b.dataset.themePick));
   P.querySelectorAll('[data-sw]').forEach(b=>b.onclick=async()=>{const r=await D.switchTo(b.dataset.sw);if(r.error)return info('Couldn\'t switch',esc(r.error));drv.list=null;await refreshAcct();toast('Now saving to '+r.email);if(libOn())loadLib()});
@@ -785,7 +786,7 @@ function renderLib(keep){const L=$('#lib');const foc=keep&&document.activeElemen
   $('#libDept').onclick=e=>{const b=e.target.closest('[data-d]');if(!b)return;drv.dept=b.dataset.d;$('#libDept').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));libRows()};
   $('#libQ').oninput=e=>{drv.q=e.target.value;drv.ren=-1;libRows()};libRows();if(!keep||foc){$('#libQ').focus();if(foc)$('#libQ').setSelectionRange(pos,pos)}}
 function libShell(body){return `<div class="in"><div class="lh"><h2>SOP library</h2><button class="btn" id="libClose">Back to editor</button><button class="btn rec" id="libRec">● Record new SOP</button></div>${body}
-  <div class="foot">${drv.acct&&drv.acct.active?`<span>Stored in <b>Referensys SOPs</b> in the Google Drive of ${esc(drv.acct.active)}.</span>`:''}<button class="trylink" id="libFile">Open a file from this PC</button></div></div>`}
+  <div class="foot">${drv.acct&&drv.acct.active?`<span>Stored in <b>Referensys SOPs</b> in the Google Drive of ${esc(drv.acct.active)}.</span>`:''}<button class="trylink" id="libFile">Open a file from this ${window.sop&&window.sop.platform==='android'?'device':'PC'}</button></div></div>`}
 function wireLibShell(){$('#libClose').onclick=()=>showLib(false);$('#libRec').onclick=e=>{e.stopPropagation();showLib(false);toggleMenu(true)};$('#libFile').onclick=()=>$('#fileProj').click()}
 function libRows(){const list=drv.list,res=libSearch(list,drv.q,drv.dept);
   $('#libCount').textContent=!list.length?'':drv.q||drv.dept?`${res.length} of ${list.length} SOPs`:`${list.length} SOP${list.length>1?'s':''} · newest first`;
@@ -871,8 +872,8 @@ async function saveToDrive(){if(!D)return saveProject();
     close();
     if(r.error&&needsSignIn(r.code)){if(await signInAgain(r.error))return saveToDrive();return}
     if(r.error){
-      const again=await ask('Couldn\'t save to Google Drive',esc(r.error)+' Your SOP is still open here. You can try again, or save a copy to this PC.','Save a copy to this PC');
-      if(again){const b=new Blob([project],{type:'application/json'});if(await saveBlob(b,fname()+'.sop.json'))toast('Copy saved to this PC.')}return}
+      const again=await ask('Couldn\'t save to Google Drive',esc(r.error)+' Your SOP is still open here. You can try again, or save a copy to this '+(window.sop&&window.sop.platform==='android'?'device':'PC')+'.','Save a copy');
+      if(again){const b=new Blob([project],{type:'application/json'});if(await saveBlob(b,fname()+'.sop.json'))toast('Copy saved.')}return}
     drv.cur={id:r.id,pdfId:r.pdfId,email:r.email};state.meta.title=r.name;fillMeta();if(ver===v0)dirty=false;as.at=Date.now();saveStat();drv.fresh=r.id;drv.list=null;
     showLib(true);drv.fresh=r.id;toast(same?'Saved. The same file is updated in Google Drive.':'Saved to Google Drive. From now on, changes save automatically.')}
   catch(e){close();info('Couldn\'t save',esc(e.message||String(e)))}}
@@ -940,10 +941,33 @@ function nativeLabel(l){const s=state.steps.find(x=>x.clickId===l.clickId);if(s)
 async function stopNative(){if(rec.mode!=='native')return;rec.on=false;rec.mode=null;stopStreams();await window.sop.stopClicks();
   const n=state.steps.length-rec.first;renderList();if(n)select(rec.first);else{loadForm();draw()}
   toast(n?`${n} step${n>1?'s':''} recorded. Now cover personal details on each one.`:'No steps recorded.')}
+/* ---------- Android: every tap in any app becomes a step ---------- */
+const MOBILE=!!(window.sop&&window.sop.mobile);
+function mobilePerm(){const s=document.createElement('div');s.className='scrim';
+  s.innerHTML=`<div class="modal" role="dialog" aria-modal="true"><h3>Turn on tap recording</h3>
+  <p>Android only lets an app see taps in other apps through its <b>Accessibility</b> setting. Referensys uses it to name the button you tap and take a screenshot for each step, and only while you're recording.</p>
+  <p>On the next screen, tap <b>Referensys</b>, switch it on, then tap <b>Allow</b>. Android's wording sounds broad; Referensys only records after you press Record.</p>
+  <div class="row"><button class="btn" data-r="0">Not now</button><button class="btn primary" data-r="1">Open Accessibility settings</button></div></div>`;
+  s.onclick=e=>{const r=e.target.closest('[data-r]');if(!r&&e.target!==s)return;s.remove();if(r&&r.dataset.r==='1')window.sop.mobile.openSettings()};document.body.appendChild(s)}
+async function startMobile(){if(rec.on)return;
+  let st={enabled:false};try{st=await window.sop.mobile.status()}catch(e){}
+  if(!st.enabled){mobilePerm();return}
+  dropExample();rec.first=state.steps.length;
+  try{await window.sop.mobile.start({screenText:useScreenText})}catch(e){if(e&&e.code==='permission')mobilePerm();else info('Recording didn\'t start',esc(e&&e.message||String(e)))}}
+const loadImg=src=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src});
+async function mobileSteps(list){if(!list||!list.length){toast('No steps recorded.');return}
+  const first=state.steps.length;
+  for(const p of list){try{const im=await loadImg(p.image);const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);
+    const s=c.width/320;addStep(c,{title:p.title||'Tap here',text:p.text||'',auto:true,autoText:true,app:p.app||'',boxes:p.x!=null?[markerBox(p.x,p.y,s)]:[]},true)}catch(e){console.error(e)}}
+  renderList();select(first);toast(`${list.length} step${list.length>1?'s':''} recorded. Now cover personal details on each one.`)}
+
 if(NATIVE){window.sop.onClick(nativeClick);window.sop.onLabel(nativeLabel);window.sop.onStop(stopNative);window.sop.onPause(p=>{rec.paused=p});
   $('#recNative').hidden=false;$('#optWrap').hidden=false;$('#recScreen').hidden=true;$('#optText').checked=useScreenText;
   $('#optText').onchange=e=>{useScreenText=e.target.checked;try{localStorage.setItem('sop.screenText',useScreenText?'1':'0')}catch(err){}};
-  $('#recNative').onclick=()=>{toggleMenu(false);startNative()};
+  $('#recNative').onclick=()=>{toggleMenu(false);MOBILE?startMobile():startNative()};
+  if(MOBILE){$('#recNative').innerHTML='<b>Other apps</b><span>Every tap in any app becomes a step with a screenshot, a ring where you tapped, a title and instructions.</span>';
+    $('#optWrap').lastChild.textContent=' Use button names in step titles';window.sop.mobile.onSteps(mobileSteps);
+    const li=document.querySelector('#empty li');if(li)li.innerHTML='Tap <b>Record</b> and choose <b>Other apps</b>.';const li2=document.querySelectorAll('#empty li')[1];if(li2)li2.innerHTML='Do the task as you normally would, in any app. Each tap becomes a step.'}
   window.sop.version&&window.sop.version().then(v=>{document.querySelector('.brand small').textContent='Version '+v});refreshAcct();
   window.sop.onUpdateReady&&window.sop.onUpdateReady(v=>{$('#updText').textContent=`Version ${v} has downloaded. It installs when you restart Referensys${state.steps.length&&!state.example?' (save your work first)':''}.`;$('#updBanner').hidden=false});
   $('#btnUpd').onclick=async()=>{if(rec.on){toast('Finish recording first.');return}
