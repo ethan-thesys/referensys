@@ -1,11 +1,12 @@
 // Referensys — Windows desktop app.
 // While recording, every left click anywhere on screen tells the window to grab a screenshot
 // at that instant; a helper then names what was clicked (via Windows UI Automation) for the step title.
-// Nothing here talks to the internet.
+// The window itself never talks to the internet; Google Drive saving lives in drive.js.
 const { app, BrowserWindow, ipcMain, screen, desktopCapturer, shell, session } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const readline = require('readline');
+const drive = require('./drive');
 
 let uIOhook = null;
 try { ({ uIOhook } = require('uiohook-napi')); } catch (e) { console.error('Click listener failed to load:', e); }
@@ -50,6 +51,16 @@ function createWindow() {
   win.webContents.on('did-finish-load', () => { if (updateReady) win.webContents.send('update:ready', updateReady); });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', e => e.preventDefault());
+  // Let the window finish an autosave to Google Drive before it closes.
+  let closing = false;
+  win.on('close', e => {
+    if (closing || quitting) return;
+    e.preventDefault();
+    win.webContents.send('app:closing');
+    setTimeout(() => { closing = true; if (win) win.close(); }, 60000); // never hang on close
+  });
+  ipcMain.removeHandler('app:closeNow');
+  ipcMain.handle('app:closeNow', () => { closing = true; if (win) win.close(); });
   win.on('closed', () => { win = null; if (panel) panel.destroy(); });
 }
 
@@ -168,11 +179,14 @@ function endRecording() {
 }
 
 // ---------- messages from the windows ----------
+drive.register(ipcMain, () => win);
 ipcMain.handle('perm', () => ({ screen: true, accessibility: true, hook: !!uIOhook, mac: false }));
 ipcMain.handle('perm:ask', () => {});
 ipcMain.handle('relaunch', () => { app.relaunch(); app.exit(0); });
 ipcMain.handle('version', () => app.getVersion());
-ipcMain.handle('update:install', () => { if (autoUpdater && updateReady && !recording) autoUpdater.quitAndInstall(true, true); });
+let quitting = false;
+app.on('before-quit', () => { quitting = true; });
+ipcMain.handle('update:install', () => { if (autoUpdater && updateReady && !recording) { quitting = true; autoUpdater.quitAndInstall(true, true); } });
 ipcMain.handle('displays', async () => {
   const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } });
   return screen.getAllDisplays().map((d, i) => {
