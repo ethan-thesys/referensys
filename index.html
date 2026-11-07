@@ -302,7 +302,7 @@ body.libOn main{display:none!important}
           <li>Click <b>Record</b> and choose <b>My screen</b>.</li>
           <li>Do the task as you normally would, in any program. Each click becomes a step.</li>
           <li>Click <b>Done</b>. Drag <b>Redact</b> boxes over personal details, check each step's wording, then tick the privacy check.</li>
-          <li><b>Save to Drive</b>. The SOP and its PDF go into a <b>Referensys SOPs</b> folder in your Google Drive, ready to share.</li>
+          <li><b>Save to Drive</b>. The SOP is saved as one PDF in a <b>Referensys SOPs</b> folder in your Google Drive, ready to share and edit later.</li>
         </ol>
         <div><button class="btn rec" id="btnEmptyRec">● Record</button></div>
         <button class="trylink" id="btnTrySample">New to Referensys? Practice on the sample app (fake data)</button>
@@ -339,7 +339,7 @@ body.libOn main{display:none!important}
 </main>
 <div id="toast" role="status"></div>
 <input type="file" id="fileImgs" accept="image/*" multiple hidden>
-<input type="file" id="fileProj" accept=".json,application/json" hidden>
+<input type="file" id="fileProj" accept=".pdf,application/pdf,.json,application/json" hidden>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -602,7 +602,11 @@ async function saveProject(){if(!state.steps.length){toast('Nothing to save yet.
   state.steps.forEach(s=>{const f=flatten(s);s.img=f;s.w=f.width;s.h=f.height;s.boxes=[];s.crop=null;s.undo=[];refreshThumb(s)});selBox=-1;renderList();draw();
   const data={app:'referensys',v:2,meta:state.meta,steps:state.steps.map(s=>({title:s.title,text:s.text,caution:s.caution,reviewed:s.reviewed,image:s.img.toDataURL('image/png')}))};
   if(await saveBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),fname()+'.sop.json')){dirty=false;toast('Project saved.')}}
-async function loadProject(f){try{const d=JSON.parse(await f.text());if(d.app!=='referensys'&&d.app!=='sop-builder')throw 0;
+async function loadProject(f){try{let text;
+    if(/\.pdf$/i.test(f.name)||f.type==='application/pdf'){if(!window.sop||!window.sop.pdf){toast('Opening PDFs works in the installed Windows app.');return}
+      const r=await window.sop.pdf.extract(new Uint8Array(await f.arrayBuffer()));if(r.error){info('Couldn\'t open this PDF',esc(r.error));return}text=r.text}
+    else text=await f.text();
+    const d=JSON.parse(text);if(d.app!=='referensys'&&d.app!=='sop-builder')throw 0;
     if(state.steps.length&&!state.example&&!await ask('Open project','This replaces the SOP you have open now.','Replace',true))return;
     await loadData(d);drv.cur=null;showLib(false);toast('Project opened.')}
   catch(e){toast('That file is not a Referensys project.')}}
@@ -615,7 +619,10 @@ async function exportPdf(){if(!state.steps.length){toast('Add at least one step 
   if(!window.jspdf){toast('The PDF library did not load. Check your connection and reload.');return}
   const un=state.steps.filter(s=>!s.reviewed).length;
   if(un&&!await ask('Some steps haven\'t had the privacy check',`${un} step${un>1?'s have':' has'} not been marked as checked. Personal details could appear in the PDF.`,'Export anyway',true))return;
-  if(await saveBlob(buildPdf().output('blob'),fname()+'.pdf'))toast('PDF ready.')}
+  if(await saveBlob(await pdfWithCopy(buildPdf()),fname()+'.pdf'))toast(window.sop&&window.sop.pdf?'PDF ready. Open it in Referensys any time to edit the steps.':'PDF ready.')}
+function projectText(){return JSON.stringify({app:'referensys',v:2,meta:state.meta,steps:state.steps.map(s=>({title:s.title,text:s.text,caution:s.caution,reviewed:s.reviewed,image:(s.boxes.length||s.crop?flatten(s):s.img).toDataURL('image/png')}))})}
+async function pdfWithCopy(doc){const raw=doc.output('arraybuffer');if(!window.sop||!window.sop.pdf)return new Blob([raw],{type:'application/pdf'});
+  const r=await window.sop.pdf.embed({pdf:new Uint8Array(raw),project:projectText()});return new Blob([r.error?raw:r.bytes],{type:'application/pdf'})}
 function buildPdf(){const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',format:'letter'});const W=612,H=792,M=50,IND=34,TW=W-2*M-IND;let y=M;
   const teal=[13,107,107];
   doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(...teal);doc.text('STANDARD OPERATING PROCEDURE',M,y);y+=22;
@@ -663,6 +670,8 @@ function nameModal(title,val,ok){return new Promise(res=>{const s=document.creat
 async function refreshAcct(){if(!D)return;const a=await D.accounts();drv.acct=a;const b=$('#btnAcct');
   b.innerHTML=a.active?`<span class="av">${esc(a.active[0].toUpperCase())}</span><span>${esc(a.active)}</span>`:'Sign in with Google';
   b.title=a.active?'Saving to the Google Drive of '+a.active:'Sign in to save SOPs to your Google Drive'}
+const needsSignIn=c=>c==='reauth'||c==='scopes'||c==='signed_out';
+async function signInAgain(msg){await refreshAcct();return await ask('Sign in again',esc(msg),'Sign in')&&!!await signIn()}
 async function signIn(){const close=working('Finish signing in in your browser…');const r=await D.signIn();close();
   if(r.error){if(r.code!=='denied')info('Sign-in didn\'t finish',esc(r.error));return null}
   drv.list=null;await refreshAcct();toast('Signed in as '+r.email);return r.email}
@@ -690,8 +699,9 @@ async function loadLib(fresh){const L=$('#lib');
     wireLibShell();$('#libSign').onclick=async()=>{if(await signIn())loadLib()};return}
   if(!drv.list){L.innerHTML=libShell(`<div class="none"><div class="busy"><span class="spin"></span>Loading your SOPs…</div></div>`);wireLibShell();
     const r=await D.list();if(!libOn())return;
-    if(r.error){L.innerHTML=libShell(`<div class="none"><b>Couldn't load your library</b><span>${esc(r.error)}</span><button class="btn" id="libRetry">Try again</button></div>`);wireLibShell();
-      $('#libRetry').onclick=loadLib;if(r.code==='signed_out')await refreshAcct();return}
+    if(r.error){const re=needsSignIn(r.code);if(re)await refreshAcct();
+      L.innerHTML=libShell(`<div class="none"><b>${re?'Sign in again to see your SOPs':'Couldn\'t load your library'}</b><span>${esc(r.error)}</span><button class="btn ${re?'primary':''}" id="libRetry">${re?'Sign in with Google':'Try again'}</button></div>`);wireLibShell();
+      $('#libRetry').onclick=async()=>{if(re){if(await signIn())loadLib()}else loadLib()};return}
     drv.list=r.sops}
   renderLib()}
 function renderLib(keep){const L=$('#lib');const foc=keep&&document.activeElement&&document.activeElement.id==='libQ',pos=foc?$('#libQ').selectionStart:0;
@@ -719,12 +729,13 @@ function libRows(){const list=drv.list,res=libSearch(list,drv.q,drv.dept);
   const ok=async()=>{const s=list[drv.ren],v=$('#libRenIn').value.trim();drv.ren=-1;if(!v||v===s.name){libRows();return}
     const close=working('Renaming…');const r=await D.rename({id:s.id,name:v});close();
     if(r.error){info('Couldn\'t rename',esc(r.error));libRows();return}
-    s.name=r.name;if(drv.cur&&drv.cur.id===s.id){state.meta.title=r.name;fillMeta()}libRows();toast('Renamed. The SOP and its PDF both use the new name.')};
+    s.name=r.name;if(drv.cur&&drv.cur.id===s.id){state.meta.title=r.name;fillMeta()}libRows();toast('Renamed in Google Drive.')};
   if($('#libRenOk')){$('#libRenOk').onclick=ok;$('#libRenNo').onclick=()=>{drv.ren=-1;libRows()};$('#libRenIn').onkeydown=e=>{if(e.key==='Enter')ok();if(e.key==='Escape'){e.stopPropagation();drv.ren=-1;libRows()}}}}
 
 async function openFromDrive(s){if(drv.cur&&drv.cur.id===s.id&&state.steps.length){showLib(false);return}
   if(state.steps.length&&dirty&&!state.example&&!await ask('Open “'+s.name+'”?','This replaces the SOP you have open now. Changes you haven\'t saved will be lost.','Open',true))return;
   const close=working('Opening “'+s.name+'”…');const r=await D.open(s.id);
+  if(r.error&&needsSignIn(r.code)){close();if(await signInAgain(r.error))openFromDrive(s);return}
   if(r.error){close();info('Couldn\'t open this SOP',esc(r.error));if(r.code==='missing'){drv.list=null;loadLib()}return}
   try{const d=JSON.parse(r.text);await loadData(d)}catch(e){close();info('Couldn\'t open this SOP','The file in Google Drive isn\'t a Referensys SOP.');return}
   close();state.meta.title=s.name;fillMeta();drv.cur={id:s.id,pdfId:s.pdfId,email:r.email};showLib(false);toast('Opened “'+s.name+'”.')}
@@ -744,15 +755,16 @@ async function saveToDrive(){if(!D)return saveProject();
   const close=working('Saving to Google Drive…');
   try{
     state.steps.forEach(s=>{if(s.boxes.length||s.crop){const f=flatten(s);s.img=f;s.w=f.width;s.h=f.height;s.boxes=[];s.crop=null;s.undo=[];refreshThumb(s)}});selBox=-1;renderList();draw();
-    const project=JSON.stringify({app:'referensys',v:2,meta:state.meta,steps:state.steps.map(s=>({title:s.title,text:s.text,caution:s.caution,reviewed:s.reviewed,image:s.img.toDataURL('image/png')}))});
+    const project=projectText();
     const pdf=new Uint8Array(buildPdf().output('arraybuffer'));
     const r=await D.save({id:same?drv.cur.id:null,title:state.meta.title,project,pdf,summary:{dept:state.meta.dept||'',purpose:state.meta.purpose||'',steps:state.steps.map(s=>[s.title,s.text].filter(Boolean).join('. '))}});
     close();
-    if(r.error){if(r.code==='signed_out')await refreshAcct();
+    if(r.error&&needsSignIn(r.code)){if(await signInAgain(r.error))return saveToDrive();return}
+    if(r.error){
       const again=await ask('Couldn\'t save to Google Drive',esc(r.error)+' Your SOP is still open here. You can try again, or save a copy to this PC.','Save a copy to this PC');
       if(again){const b=new Blob([project],{type:'application/json'});if(await saveBlob(b,fname()+'.sop.json'))toast('Copy saved to this PC.')}return}
     drv.cur={id:r.id,pdfId:r.pdfId,email:r.email};state.meta.title=r.name;fillMeta();dirty=false;drv.fresh=r.id;drv.list=null;
-    showLib(true);drv.fresh=r.id;toast(same?'Saved. The SOP and its PDF are updated in Google Drive.':'Saved to Google Drive. Only redacted screenshots were uploaded.')}
+    showLib(true);drv.fresh=r.id;toast(same?'Saved. The same file is updated in Google Drive.':'Saved to Google Drive as one PDF. Only redacted screenshots were uploaded.')}
   catch(e){close();info('Couldn\'t save',esc(e.message||String(e)))}}
 
 /* ---------- wiring ---------- */

@@ -20,6 +20,11 @@ contextBridge.exposeInMainWorld('sop', {
   pause: () => ipcRenderer.send('panel:pause'),
   done: () => ipcRenderer.send('panel:done'),
   onPanelState: cb => on('panel:state', cb),
+  // PDFs that carry their own editable copy
+  pdf: {
+    embed: data => ipcRenderer.invoke('pdf:embed', data),
+    extract: bytes => ipcRenderer.invoke('pdf:extract', bytes)
+  },
   // Google Drive
   drive: {
     accounts: () => ipcRenderer.invoke('drive:accounts'),

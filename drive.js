@@ -1,21 +1,26 @@
 // Google Drive for Referensys.
 // Signs in with Google in the person's own browser and saves SOPs to a "Referensys SOPs" folder in their Drive.
-// Permission asked for: drive.file, which only reaches files Referensys itself created. Nothing else in Drive is visible.
+// Each SOP is one PDF; the editable version rides inside it (see pdfdata.js).
+// Permissions asked for: drive.file (only files Referensys itself created) and drive.appdata (Referensys's own
+// hidden folder, which holds the search list). Nothing else in Drive is visible.
 // All Drive traffic happens here in the main process; the app window stays blocked from the internet.
 const { app, shell, safeStorage } = require('electron');
 const http = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const pdfdata = require('./pdfdata');
 
 // The Google sign-in key isn't kept in the source code. GitHub writes google-client.json from the repository's
 // Actions secrets (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) when it builds the installer.
 let CFG = {};
 try { CFG = require('./google-client.json'); } catch {}
 const CLIENT_ID = CFG.id, CLIENT_SECRET = CFG.secret;
-const SCOPES = 'openid email https://www.googleapis.com/auth/drive.file';
+const SCOPES = 'openid email https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata';
+const hasScopes = sc => /auth\/drive\.file/.test(sc || '') && /auth\/drive\.appdata/.test(sc || '');
 const FOLDER = 'Referensys SOPs';
-const INDEX = 'Referensys library (do not delete).json';
+const INDEX = 'library.json';                                  // hidden, in Referensys's app folder
+const OLD_INDEX = 'Referensys library (do not delete).json';    // visible list from the 1.2 test build
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 
@@ -36,7 +41,7 @@ class DriveError extends Error { constructor(msg, code) { super(msg); this.code 
 // ---------- sign in (system browser + loopback, with PKCE) ----------
 let signingIn = null;
 function signIn() {
-  if (!CLIENT_ID || !CLIENT_SECRET) return Promise.reject(new DriveError('Google sign-in isn\u2019t set up in this copy of Referensys.', 'config'));
+  if (!CLIENT_ID || !CLIENT_SECRET) return Promise.reject(new DriveError('Google sign-in isn’t set up in this copy of Referensys.', 'config'));
   if (signingIn) return signingIn;
   signingIn = new Promise((resolve, reject) => {
     const verifier = crypto.randomBytes(48).toString('base64url');
@@ -56,6 +61,7 @@ function signIn() {
         if (u.searchParams.get('error')) throw new DriveError(u.searchParams.get('error') === 'access_denied' ? 'Sign-in was cancelled.' : 'Google said: ' + u.searchParams.get('error'), 'denied');
         const tok = await tokenRequest({ grant_type: 'authorization_code', code: u.searchParams.get('code'), code_verifier: verifier, redirect_uri: redirect });
         if (!tok.refresh_token) throw new DriveError('Google didn’t return a sign-in key. Try again.', 'norefresh');
+        if (!hasScopes(tok.scope)) throw new DriveError('Referensys needs both permissions on Google’s screen. Sign in again and leave both boxes ticked.', 'scopes');
         const email = JSON.parse(Buffer.from(tok.id_token.split('.')[1], 'base64url').toString()).email;
         const s = load();
         s.accounts[email] = { ...(s.accounts[email] || {}), refresh: seal(tok.refresh_token) };
@@ -96,10 +102,11 @@ async function token(email) {
   if (!a) throw new DriveError('Sign in with Google first.', 'signed_out');
   try {
     const t = await tokenRequest({ grant_type: 'refresh_token', refresh_token: unseal(a.refresh) });
+    if (t.scope && !hasScopes(t.scope)) throw new DriveError('Referensys needs one more permission from Google, so it can keep its search list out of sight. Sign in again to allow it.', 'reauth');
     cache[email] = { token: t.access_token, exp: Date.now() + (t.expires_in - 60) * 1000 };
     return t.access_token;
   } catch (e) {
-    if (e.code === 'signed_out') { delete load().accounts[email]; if (store.active === email) store.active = null; persist(); }
+    if (e.code === 'signed_out' || e.code === 'reauth') { delete load().accounts[email]; if (store.active === email) store.active = null; persist(); }
     throw e;
   }
 }
@@ -112,6 +119,7 @@ async function api(email, url, opts = {}, retry = true) {
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     const msg = j.error && j.error.message || ('HTTP ' + r.status);
+    if (r.status === 403 && /insufficient|scope/i.test(msg)) throw new DriveError('Referensys needs one more permission from Google. Sign in again to allow it.', 'reauth');
     throw new DriveError(r.status === 404 ? 'That file isn’t in Google Drive any more.' : r.status === 403 && /quota|storage/i.test(msg) ? 'Your Google Drive is full.' : 'Google Drive: ' + msg, r.status === 404 ? 'missing' : 'drive');
   }
   return r;
@@ -133,26 +141,45 @@ async function folder(email) {
   return id;
 }
 
+// Reads one SOP file from Drive and returns its editable version as text (PDF with the copy inside, or an older .referensys file).
+async function readSop(email, id) {
+  const buf = Buffer.from(await (await api(email, `${API}/files/${id}?alt=media`)).arrayBuffer());
+  if (pdfdata.isPdf(buf)) {
+    const t = await pdfdata.extract(buf);
+    if (!t) throw new DriveError('This PDF doesn’t have a Referensys editable copy inside.', 'notsop');
+    return t;
+  }
+  return buf.toString('utf8');
+}
+
 async function readIndex(email) {
-  const a = load().accounts[email], fid = await folder(email);
+  const a = load().accounts[email];
   if (!a.indexId) {
-    const f = await json(email, `${API}/files?q=${q(`'${fid}' in parents and name='${INDEX}' and trashed=false`)}&fields=files(id)`);
+    const f = await json(email, `${API}/files?spaces=appDataFolder&q=${q(`name='${INDEX}' and trashed=false`)}&fields=files(id)`);
     a.indexId = f.files[0] ? f.files[0].id : null; persist();
   }
   if (a.indexId) {
     try { const d = JSON.parse(await (await api(email, `${API}/files/${a.indexId}?alt=media`)).text()); if (Array.isArray(d.sops)) return d.sops; }
     catch (e) { if (e.code !== 'missing' && !(e instanceof SyntaxError)) throw e; a.indexId = null; persist(); }
   }
-  return rebuildIndex(email, fid); // index missing (deleted by hand, or first use): rebuild it from the SOP files
+  const fid = await folder(email);
+  // Move the visible list from the 1.2 test build into the hidden folder, then remove it from the SOPs folder.
+  const old = await json(email, `${API}/files?q=${q(`'${fid}' in parents and name='${OLD_INDEX}' and trashed=false`)}&fields=files(id)`);
+  if (old.files[0]) {
+    let list = null;
+    try { const d = JSON.parse(await (await api(email, `${API}/files/${old.files[0].id}?alt=media`)).text()); if (Array.isArray(d.sops)) list = d.sops; } catch {}
+    if (list) { await writeIndex(email, list); await remove(email, old.files[0].id); return list; }
+  }
+  return rebuildIndex(email, fid); // no list yet (first use, or it was lost): rebuild it from the SOP files
 }
 async function rebuildIndex(email, fid) {
-  const r = await json(email, `${API}/files?q=${q(`'${fid}' in parents and appProperties has { key='referensys' and value='sop' } and trashed=false`)}&fields=files(id,name,modifiedTime,appProperties)&orderBy=modifiedTime desc&pageSize=1000`);
+  const r = await json(email, `${API}/files?q=${q(`'${fid}' in parents and appProperties has { key='referensys' and value='sop' } and trashed=false`)}&fields=files(id,name,mimeType,modifiedTime,appProperties)&orderBy=modifiedTime desc&pageSize=1000`);
   const list = [];
   for (const f of r.files) {
     let d = {};
-    try { d = JSON.parse(await (await api(email, `${API}/files/${f.id}?alt=media`)).text()); } catch {}
-    const m = d.meta || {};
-    list.push({ id: f.id, pdfId: (f.appProperties || {}).pdf || null, name: f.name.replace(/\.referensys$/, ''), dept: m.dept || '', purpose: m.purpose || '',
+    try { d = JSON.parse(await readSop(email, f.id)); } catch {}
+    const m = d.meta || {}, pdf = f.mimeType === 'application/pdf';
+    list.push({ id: f.id, pdfId: pdf ? f.id : ((f.appProperties || {}).pdf || null), name: f.name.replace(/\.(referensys|pdf)$/i, ''), dept: m.dept || '', purpose: m.purpose || '',
       steps: (d.steps || []).map(s => [s.title, s.text].filter(Boolean).join('. ')), updated: f.modifiedTime, by: email });
   }
   await writeIndex(email, list);
@@ -160,9 +187,10 @@ async function rebuildIndex(email, fid) {
 }
 async function writeIndex(email, list) {
   const a = load().accounts[email];
-  const id = await upload(email, { id: a.indexId, name: INDEX, mime: 'application/json', parent: await folder(email), body: Buffer.from(JSON.stringify({ v: 1, sops: list })) });
+  const id = await upload(email, { id: a.indexId, name: INDEX, mime: 'application/json', parent: 'appDataFolder', body: Buffer.from(JSON.stringify({ v: 1, sops: list })) });
   a.indexId = id; persist();
 }
+const remove = (email, id) => api(email, `${API}/files/${id}`, { method: 'DELETE' }).catch(() => {});
 
 // Resumable upload works for any size. With an id it replaces the file's contents (and name).
 async function upload(email, { id, name, mime, parent, props, body }) {
@@ -199,15 +227,16 @@ const actions = {
   save: async ({ id, title, project, pdf, summary }) => {
     const email = active(), parent = await folder(email), list = await readIndex(email);
     const name = fileName(title), prev = id && list.find(e => e.id === id);
-    const pdfId = await upload(email, { id: prev && prev.pdfId, name: name + '.pdf', mime: 'application/pdf', parent, props: { referensys: 'pdf' }, body: Buffer.from(pdf) });
-    const sopId = await upload(email, { id: prev && prev.id, name: name + '.referensys', mime: 'application/json', parent, props: { referensys: 'sop', pdf: pdfId }, body: Buffer.from(project) });
-    const entry = { id: sopId, pdfId, name, dept: summary.dept || '', purpose: summary.purpose || '', steps: summary.steps || [], updated: new Date().toISOString(), by: email };
-    await writeIndex(email, [entry, ...list.filter(e => e.id !== sopId && e.id !== id)]);
-    return { id: sopId, pdfId, email, name };
+    const body = await pdfdata.embed(Buffer.from(pdf), project);      // one file: the PDF, with the editable copy inside
+    const fileId = await upload(email, { id: prev && prev.pdfId, name: name + '.pdf', mime: 'application/pdf', parent, props: { referensys: 'sop' }, body });
+    if (prev && prev.id !== fileId) await remove(email, prev.id);   // older two-file SOP: drop the separate .referensys file
+    const entry = { id: fileId, pdfId: fileId, name, dept: summary.dept || '', purpose: summary.purpose || '', steps: summary.steps || [], updated: new Date().toISOString(), by: email };
+    await writeIndex(email, [entry, ...list.filter(e => e.id !== fileId && e.id !== id)]);
+    return { id: fileId, pdfId: fileId, email, name };
   },
   open: async id => {
     const email = active();
-    try { return { email, text: await (await api(email, `${API}/files/${id}?alt=media`)).text() }; }
+    try { return { email, text: await readSop(email, id) }; }
     catch (e) { if (e.code === 'missing') { const l = await readIndex(email); await writeIndex(email, l.filter(x => x.id !== id)); } throw e; }
   },
   pdf: async pdfId => { if (!pdfId) throw new DriveError('This SOP has no PDF yet. Open it and save again.', 'missing'); await shell.openExternal(`https://drive.google.com/file/d/${pdfId}/view`); return {}; },
@@ -216,14 +245,16 @@ const actions = {
     if (!e) throw new DriveError('That SOP isn’t in your library any more.', 'missing');
     const n = fileName(name);
     const patch = (fid, nm) => api(email, `${API}/files/${fid}?fields=id`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nm }) });
-    await patch(id, n + '.referensys');
-    if (e.pdfId) await patch(e.pdfId, n + '.pdf').catch(() => {});
+    if (e.pdfId && e.pdfId !== id) { await patch(id, n + '.referensys'); await patch(e.pdfId, n + '.pdf').catch(() => {}); }
+    else await patch(id, n + '.pdf');
     e.name = n; await writeIndex(email, list);
     return { name: n };
   }
 };
 
 function register(ipcMain, getWin) {
+  ipcMain.handle('pdf:embed', async (_e, { pdf, project }) => { try { return { bytes: new Uint8Array(await pdfdata.embed(Buffer.from(pdf), project)) }; } catch (e) { return { error: e.message }; } });
+  ipcMain.handle('pdf:extract', async (_e, bytes) => { try { const t = await pdfdata.extract(Buffer.from(bytes)); return t ? { text: t } : { error: 'This PDF wasn’t made by Referensys, so it has no editable steps inside.' }; } catch (e) { return { error: 'Couldn’t read that PDF.' }; } });
   for (const [k, fn] of Object.entries(actions)) {
     ipcMain.handle('drive:' + k, async (_e, arg) => {
       try {

@@ -1,7 +1,7 @@
 {
   "name": "referensys",
   "productName": "Referensys",
-  "version": "1.2.0-test.1",
+  "version": "1.2.0-test.2",
   "description": "Records pharmacy procedures click by click, with PHI redaction and PDF export.",
   "author": "Ethan",
   "main": "main.js",
@@ -15,6 +15,7 @@
     "electron-updater": "6.3.9",
     "html2canvas": "1.4.1",
     "jspdf": "2.5.1",
+    "pdf-lib": "1.17.1",
     "uiohook-napi": "1.5.4"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "files": [
       "main.js",
       "drive.js",
+      "pdfdata.js",
       "google-client.json",
       "preload.js",
       "index.html",
@@ -51,7 +53,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "signAndEditExecutable": false

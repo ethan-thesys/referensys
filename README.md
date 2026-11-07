@@ -25,9 +25,11 @@ You never need to download Referensys again.
 2. Do the task as you normally would, in any program. Every left click adds a step.
 3. Use **Pause** on the bar for clicks you don't want recorded, then **Resume**. Click **Done** when finished.
 4. Go through each step: drag **Redact** boxes over personal details, check the title and instructions, and tick the privacy check.
-5. Click **Save to Drive**. The first time, Google asks you to sign in and click **Allow**. The SOP and its PDF go into **Referensys SOPs** in your Google Drive.
+5. Click **Save to Drive**. The first time, Google asks you to sign in and click **Allow**. The SOP is saved as one PDF in **Referensys SOPs** in your Google Drive.
 
-You can also click **Export PDF** to save a PDF on this computer.
+That PDF opens like any other PDF, and it also carries the editable steps inside, so Referensys can open it again for editing. Referensys's search list is kept in a hidden folder that only Referensys can see, so your Drive folder shows just your SOPs.
+
+You can also click **Export PDF** to save the PDF on this computer. It carries the editable steps too: open it with **Library → Open a file from this PC**.
 
 The small bar doesn't appear in your screenshots.
 
@@ -36,9 +38,9 @@ The small bar doesn't appear in your screenshots.
 Click **Library** to see every SOP in your Referensys SOPs folder, newest first.
 
 - **Search** looks through titles, departments, step titles and instructions, and shows the step that matched.
-- **Open** loads an SOP back into the editor. Change anything, then **Save to Drive** again to update it and its PDF.
+- **Open** loads an SOP back into the editor. Change anything, then **Save to Drive** again to update the same file.
 - **PDF** opens the PDF in Google Drive, ready to print or share.
-- **Rename** changes the name of both the SOP and its PDF.
+- **Rename** changes the file's name in Drive.
 
 Any Google account works, including Gmail. Click your email at the top right to add another account, switch which Drive you save to, or sign out. Each account has its own library.
 
