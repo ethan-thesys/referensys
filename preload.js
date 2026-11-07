@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('sop', {
   installUpdate: () => ipcRenderer.invoke('update:install'),
   onUpdateReady: cb => on('update:ready', cb),
   checkUpdates: () => ipcRenderer.invoke('update:check'),
+  setTheme: t => ipcRenderer.send('theme:set', t),
   updateStatus: () => ipcRenderer.invoke('update:get'),
   onUpdateStatus: cb => on('update:status', cb),
   displays: () => ipcRenderer.invoke('displays'),

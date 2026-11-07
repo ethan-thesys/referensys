@@ -2,7 +2,7 @@
 // While recording, every left click anywhere on screen tells the window to grab a screenshot
 // at that instant; a helper then names what was clicked (via Windows UI Automation) for the step title.
 // The window itself never talks to the internet; Google Drive saving lives in drive.js.
-const { app, BrowserWindow, ipcMain, screen, desktopCapturer, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, desktopCapturer, shell, session, nativeTheme } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const readline = require('readline');
@@ -204,6 +204,7 @@ ipcMain.handle('relaunch', () => { app.relaunch(); app.exit(0); });
 ipcMain.handle('version', () => app.getVersion());
 let quitting = false;
 app.on('before-quit', () => { quitting = true; });
+ipcMain.on('theme:set', (_e, t) => { nativeTheme.themeSource = ['light', 'dark'].includes(t) ? t : 'system'; });
 ipcMain.handle('update:check', () => { checkUpdates(); return upd; });
 ipcMain.handle('update:get', () => upd);
 ipcMain.handle('update:install', () => { if (autoUpdater && updateReady && !recording) { quitting = true; autoUpdater.quitAndInstall(true, true); } });

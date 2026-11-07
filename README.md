@@ -48,6 +48,10 @@ Click **Library** to see every SOP in your Referensys SOPs folder, newest first.
 
 Any Google account works, including Gmail. Open **Settings** (top right) to add another account, switch which Drive you save to, or sign out. Each account has its own library.
 
+## Appearance
+
+Open **Settings** and choose **Match Windows** (follows your Windows light or dark setting), **Light** or **Dark**. Referensys remembers your choice on that computer.
+
 ## Good to know
 
 - **Titles and instructions are written for you** from the name of what you clicked, for example *In Outlook, click the "Send" button.* Edit them as needed. Once you edit the instructions, Referensys won't overwrite them.
