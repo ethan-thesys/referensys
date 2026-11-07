@@ -119,7 +119,7 @@ public class GoogleAuthPlugin extends Plugin {
     private void resolve(PluginCall call, String email, AuthorizationResult ar) {
         finish(call, null);
         List<String> granted = new ArrayList<>();
-        for (Scope s : ar.getGrantedScopes()) granted.add(s.getScopeUri());
+        granted.addAll(ar.getGrantedScopes());
         if (!granted.contains("https://www.googleapis.com/auth/drive.file") || !granted.contains("https://www.googleapis.com/auth/drive.appdata")) {
             call.reject("Referensys needs both permissions on Google's screen. Sign in again and leave both boxes ticked.", "scopes");
             return;
