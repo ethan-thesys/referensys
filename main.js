@@ -18,18 +18,36 @@ try { ({ uIOhook } = require('uiohook-napi')); } catch (e) { console.error('Clic
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch (e) { console.error('Updater failed to load:', e); }
 let updateReady = null;
+// Update status shown in Settings: idle | checking | latest | downloading | ready | error | dev
+let upd = { state: 'idle', version: null, percent: 0, error: null, checkedAt: null };
+function sendUpd(patch) {
+  upd = { ...upd, ...patch };
+  if (win) win.webContents.send('update:status', upd);
+}
+function checkUpdates() {
+  if (!autoUpdater || !app.isPackaged) { sendUpd({ state: 'dev' }); return; }
+  if (recording || upd.state === 'checking' || upd.state === 'downloading' || upd.state === 'ready') return;
+  sendUpd({ state: 'checking', error: null });
+  autoUpdater.checkForUpdates().catch(() => {});
+}
 function setupUpdates() {
-  if (!autoUpdater || !app.isPackaged) return;
+  if (!autoUpdater || !app.isPackaged) { upd.state = 'dev'; return; }
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-available', info => sendUpd({ state: 'downloading', version: info.version, percent: 0, checkedAt: Date.now() }));
+  autoUpdater.on('update-not-available', () => sendUpd({ state: 'latest', checkedAt: Date.now() }));
+  autoUpdater.on('download-progress', p => sendUpd({ state: 'downloading', percent: Math.round(p.percent || 0) }));
   autoUpdater.on('update-downloaded', info => {
     updateReady = info.version;
+    sendUpd({ state: 'ready', version: info.version, percent: 100 });
     if (win) win.webContents.send('update:ready', updateReady);
   });
-  autoUpdater.on('error', err => console.error('Update check failed:', err && err.message));
-  const check = () => { if (!recording) autoUpdater.checkForUpdates().catch(() => {}); };
-  setTimeout(check, 5000);
-  setInterval(check, 4 * 60 * 60 * 1000);
+  autoUpdater.on('error', err => {
+    console.error('Update check failed:', err && err.message);
+    sendUpd({ state: 'error', error: /ENOTFOUND|ECONN|ETIMEDOUT|net::/i.test(String(err && err.message)) ? 'Can’t reach GitHub. Check your internet connection.' : 'The update check didn’t finish. Try again in a minute.', checkedAt: Date.now() });
+  });
+  setTimeout(checkUpdates, 5000);
+  setInterval(checkUpdates, 4 * 60 * 60 * 1000); // every 4 hours while Referensys is open
 }
 
 let win = null, panel = null;
@@ -186,6 +204,8 @@ ipcMain.handle('relaunch', () => { app.relaunch(); app.exit(0); });
 ipcMain.handle('version', () => app.getVersion());
 let quitting = false;
 app.on('before-quit', () => { quitting = true; });
+ipcMain.handle('update:check', () => { checkUpdates(); return upd; });
+ipcMain.handle('update:get', () => upd);
 ipcMain.handle('update:install', () => { if (autoUpdater && updateReady && !recording) { quitting = true; autoUpdater.quitAndInstall(true, true); } });
 ipcMain.handle('displays', async () => {
   const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } });

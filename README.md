@@ -12,10 +12,12 @@ Recordings stay on your computer until you save. When you save, Referensys uploa
 
 ## Updates
 
-Referensys updates itself. Each time it opens (and every few hours while it's open), it checks for a newer version and downloads it in the background. When one is ready, a bar says **Update ready**:
+Referensys updates itself. Each time it opens (and every 4 hours while it's open), it checks for a newer version and downloads it in the background. When one is ready, a bar says **Update ready**:
 
 - **Restart and update** installs it now. Save your work first.
 - **Later** installs it the next time you close Referensys.
+
+Referensys checks when it opens and every 4 hours. To check right away, open **Settings** and click **Check for updates**, which also shows download progress.
 
 You never need to download Referensys again.
 
@@ -44,7 +46,7 @@ Click **Library** to see every SOP in your Referensys SOPs folder, newest first.
 - **PDF** opens the PDF in Google Drive, ready to print or share.
 - **Rename** changes the file's name in Drive.
 
-Any Google account works, including Gmail. Click your email at the top right to add another account, switch which Drive you save to, or sign out. Each account has its own library.
+Any Google account works, including Gmail. Open **Settings** (top right) to add another account, switch which Drive you save to, or sign out. Each account has its own library.
 
 ## Good to know
 

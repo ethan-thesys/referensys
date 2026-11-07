@@ -217,6 +217,27 @@ body.recording .stage{align-items:flex-start}
 .saveStat::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
 .saveStat.ok::before{background:var(--ok)}.saveStat.busy::before{background:var(--accent);animation:pulse 1s infinite}
 .saveStat.warn{color:var(--warn);cursor:pointer}.saveStat.warn::before{background:var(--warn)}.saveStat.warn:hover{background:var(--warn-bg)}
+/* ---------- Settings ---------- */
+.dotNew{width:8px;height:8px;border-radius:50%;background:var(--rec);flex:none}
+.gear{font-size:15px;line-height:1}
+.settings{max-width:520px;gap:0;padding:0;max-height:calc(100vh - 32px);overflow:auto}
+.settings .sh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:1}
+.settings .sh h3{margin:0;font-size:17px}
+.settings section{padding:16px 20px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line)}
+.settings section:last-child{border-bottom:0}
+.settings h4{margin:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.settings .lead{margin:0;font-size:13px;color:var(--muted)}
+.accts{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.acctRow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line)}
+.acctRow:first-child{border-top:0}.acctRow.on{background:var(--soft)}
+.acctRow .av{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:12px}
+.acctRow b{overflow-wrap:anywhere;font-size:14px}.acctRow small{display:block;color:var(--muted);font-size:12px}
+.acctRow .acts{display:flex;gap:6px}.acctRow .btn{padding:4px 9px;font-size:12.5px}
+.updLine{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.updLine .ver{font:500 13px var(--mono)}
+.pill{font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;background:var(--bg);color:var(--muted)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.new{background:var(--rec-soft);color:var(--rec)}
+.bar{height:6px;border-radius:99px;background:var(--bg);overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
 /* ---------- Google Drive: account menu + SOP library ---------- */
 .wrapAcct{position:relative}
 #btnAcct{max-width:240px;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
@@ -269,7 +290,7 @@ body.libOn main{display:none!important}
   <button class="saveStat" id="saveStat" hidden></button>
   <button class="btn" id="btnPdf">Export PDF</button>
   <button class="btn ghost danger" id="btnClear">Clear</button>
-  <div class="wrapAcct"><button class="btn ghost" id="btnAcct" aria-haspopup="true" aria-expanded="false">Sign in</button><div class="menu acctMenu" id="acctMenu" hidden></div></div>
+  <div class="wrapAcct"><button class="btn ghost" id="btnAcct" aria-haspopup="dialog">Settings</button><div class="menu acctMenu" id="acctMenu" hidden></div></div>
 </header>
 <div class="recbar" id="recbar" hidden>
   <div class="grow"><span class="dot"></span><b id="recLabel">Recording</b><span class="muted" id="recStatus"></span></div>
@@ -672,9 +693,44 @@ function nameModal(title,val,ok){return new Promise(res=>{const s=document.creat
   s.onclick=e=>{const b=e.target.closest('[data-r]');if(b)fin(b.dataset.r==='1'?i.value.trim()||null:null);else if(e.target===s)fin(null)};
   i.onkeydown=e=>{if(e.key==='Enter')fin(i.value.trim()||null);if(e.key==='Escape')fin(null)};document.body.appendChild(s);i.focus();i.select()})}
 
+/* ---------- Settings: Google account + updates ---------- */
+let upd={state:'idle'};const setOpen=()=>!!document.getElementById('settingsPanel');
+const updDot=()=>upd.state==='ready';
+if(window.sop&&window.sop.onUpdateStatus){window.sop.onUpdateStatus(u=>{upd=u;if(setOpen())renderSettings();refreshAcct()});window.sop.updateStatus().then(u=>{if(u)upd=u})}
+function openSettings(){if(setOpen())return;const s=document.createElement('div');s.className='scrim';s.innerHTML='<div class="modal settings" id="settingsPanel" role="dialog" aria-modal="true" aria-labelledby="setTitle"></div>';
+  s.onclick=e=>{if(e.target===s||e.target.closest('[data-close]'))s.remove()};
+  const k=e=>{if(e.key==='Escape'&&setOpen()&&!document.querySelectorAll('.scrim')[1]){s.remove();document.removeEventListener('keydown',k)}};document.addEventListener('keydown',k);
+  document.body.appendChild(s);renderSettings();if(D)refreshAcct()}
+function renderSettings(){const P=document.getElementById('settingsPanel');if(!P)return;const a=(drv&&drv.acct)||{list:[]};
+  const ver=document.querySelector('.brand small').textContent.replace(/^Version\s*/,'')||'—';
+  const acct=!D?`<p class="lead">Saving to Google Drive works in the installed Windows app.</p>`
+   :`<p class="lead">SOPs save to a <b>Referensys SOPs</b> folder in the chosen account's Google Drive. Referensys can only see files it created there.</p>
+     ${a.list.length?`<div class="accts">${a.list.map(e=>`<div class="acctRow ${e===a.active?'on':''}"><span class="av">${esc(e[0].toUpperCase())}</span><span><b>${esc(e)}</b><small>${e===a.active?'Saving to this Google Drive':'Signed in'}</small></span>
+       <span class="acts">${e===a.active?'':`<button class="btn" data-sw="${esc(e)}">Use this one</button>`}<button class="btn ghost danger" data-out="${esc(e)}">Sign out</button></span></div>`).join('')}</div>`:''}
+     <div><button class="btn ${a.list.length?'':'primary'}" id="setAdd">${a.list.length?'Add another Google account':'Sign in with Google'}</button></div>`;
+  const u=upd;let line='',extra='',btn=`<button class="btn" id="setCheck">Check for updates</button>`;
+  if(u.state==='dev'||!window.sop||!window.sop.checkUpdates){line='<span class="pill">Updates work in the installed app</span>';btn=''}
+  else if(u.state==='checking')line='<span class="pill">Checking…</span>',btn='';
+  else if(u.state==='downloading'){line=`<span class="pill new">Downloading version ${esc(u.version||'')}</span><span class="m">${u.percent||0}%</span>`;extra=`<div class="bar"><i style="width:${u.percent||0}%"></i></div>`;btn=''}
+  else if(u.state==='ready'){line=`<span class="pill new">Version ${esc(u.version)} is ready</span>`;btn=`<button class="btn primary" id="setInstall">Restart and update</button>`;extra='<p class="lead">Your work saves to Google Drive first. Or close Referensys whenever you like, and the update installs then.</p>'}
+  else if(u.state==='latest')line=`<span class="pill ok">You're up to date</span><span class="lead">Checked ${esc(ago(new Date(u.checkedAt).toISOString()))}</span>`;
+  else if(u.state==='error')line=`<span class="pill warn">Couldn't check</span><span class="lead">${esc(u.error||'')}</span>`;
+  else line='<span class="pill">Not checked yet</span>';
+  P.innerHTML=`<div class="sh"><h3 id="setTitle">Settings</h3><button class="btn ghost" data-close>Close</button></div>
+   <section><h4>Google account</h4>${acct}</section>
+   <section><h4>Updates</h4><div class="updLine"><span class="ver">Version ${esc(ver)}</span>${line}</div>${extra}<div>${btn}</div>
+     <p class="lead">Referensys checks for updates when it opens and every 4 hours, and downloads them in the background. Click Check for updates to get one right away.</p></section>`;
+  const $$=q=>P.querySelector(q);
+  P.querySelectorAll('[data-sw]').forEach(b=>b.onclick=async()=>{const r=await D.switchTo(b.dataset.sw);if(r.error)return info('Couldn\'t switch',esc(r.error));drv.list=null;await refreshAcct();toast('Now saving to '+r.email);if(libOn())loadLib()});
+  P.querySelectorAll('[data-out]').forEach(b=>b.onclick=async()=>{const e=b.dataset.out;if(!await ask('Sign out of '+e+'?','Referensys will stop saving to this Google Drive. Your SOPs stay there, and you can sign in again any time.','Sign out',true))return;await D.signOut(e);drv.list=null;await refreshAcct();if(libOn())loadLib()});
+  if($$('#setAdd'))$$('#setAdd').onclick=async()=>{if(await signIn()&&libOn())loadLib()};
+  if($$('#setCheck'))$$('#setCheck').onclick=async()=>{upd=await window.sop.checkUpdates()||upd;renderSettings()};
+  if($$('#setInstall'))$$('#setInstall').onclick=async()=>{if(D&&drv.cur&&dirty&&!unchecked()){const c=working('Saving your changes to Google Drive…');await autoSave();c()}
+    if(dirty&&state.steps.length&&!await ask('Restart and update?','Some changes aren\'t saved to Google Drive yet. They\'ll be lost if you restart now.','Restart anyway',true))return;
+    dirty=false;window.sop.installUpdate()}}
 async function refreshAcct(){if(!D)return;const a=await D.accounts();drv.acct=a;setTimeout(saveStat);const b=$('#btnAcct');
-  b.innerHTML=a.active?`<span class="av">${esc(a.active[0].toUpperCase())}</span><span>${esc(a.active)}</span>`:'Sign in with Google';
-  b.title=a.active?'Saving to the Google Drive of '+a.active:'Sign in to save SOPs to your Google Drive'}
+  b.innerHTML=(a.active?`<span class="av">${esc(a.active[0].toUpperCase())}</span>`:'<span class="gear" aria-hidden="true">⚙</span>')+'<span>Settings</span>'+(updDot()?'<span class="dotNew" title="Update ready"></span>':'');
+  b.title=a.active?'Settings · saving to the Google Drive of '+a.active:'Settings · sign in to save SOPs to your Google Drive';if(setOpen())renderSettings()}
 const needsSignIn=c=>c==='reauth'||c==='scopes'||c==='signed_out';
 async function signInAgain(msg){await refreshAcct();return await ask('Sign in again',esc(msg),'Sign in')&&!!await signIn()}
 async function signIn(){const close=working('Finish signing in in your browser…');const r=await D.signIn();close();
@@ -689,7 +745,7 @@ function acctMenu(open){const m=$('#acctMenu');m.hidden=open===undefined?!m.hidd
     if(sw){if(sw.dataset.sw===a.active)return;const r=await D.switchTo(sw.dataset.sw);if(r.error)return info('Couldn\'t switch',esc(r.error));drv.list=null;await refreshAcct();toast('Now saving to '+r.email);if(libOn())loadLib()}
     else if(act.dataset.act==='add'){if(await signIn()&&libOn())loadLib()}
     else if(act.dataset.act==='out'){if(!await ask('Sign out of '+a.active+'?','Referensys will stop saving to this Google Drive. Your SOPs stay there, and you can sign in again any time.','Sign out',true))return;await D.signOut(a.active);drv.list=null;await refreshAcct();if(libOn())loadLib()}}}
-$('#btnAcct').onclick=e=>{e.stopPropagation();if(!D){info('Google Drive','Saving to Google Drive works in the installed Windows app.');return}acctMenu()};
+$('#btnAcct').onclick=e=>{e.stopPropagation();openSettings()};
 document.addEventListener('click',e=>{if(!e.target.closest('.wrapAcct'))acctMenu(false)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){acctMenu(false);if(libOn()&&!document.querySelector('.scrim')&&state.steps.length)showLib(false)}});
 
@@ -763,7 +819,7 @@ function saveStat(){const b=$('#saveStat');if(!b)return;const on=!!(D&&drv.cur);
   b.className='saveStat '+cls;b.textContent=txt;b.title=drv.cur?'Autosaves to the Google Drive of '+drv.cur.email:''}
 setInterval(saveStat,30000);
 $('#saveStat').onclick=async()=>{const n=unchecked(),other=drv.acct&&drv.cur&&drv.acct.active!==drv.cur.email;
-  if(other){info('Autosave paused',`This SOP is in the Google Drive of <b>${esc(drv.cur.email)}</b>, but you're signed in to <b>${esc(drv.acct.active)}</b> now. Switch back with the account button at the top right, and your changes will save.`);return}
+  if(other){info('Autosave paused',`This SOP is in the Google Drive of <b>${esc(drv.cur.email)}</b>, but you're signed in to <b>${esc(drv.acct.active)}</b> now. Switch back in <b>Settings</b>, and your changes will save.`);return}
   if(dirty&&n){const i=state.steps.findIndex(s=>!s.reviewed);state.sel=i;selBox=-1;renderList();loadForm();draw();toast('Cover personal details on this step, then tick the privacy check.');return}
   if(as.err&&needsSignIn(as.code)){if(await signIn()){as.err=null;autoSave()}return}
   if(as.err)info('Couldn\'t save to Google Drive',esc(as.err)+' Referensys will keep trying.')};

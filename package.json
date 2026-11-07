@@ -1,7 +1,7 @@
 {
   "name": "referensys",
   "productName": "Referensys",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Records pharmacy procedures click by click, with PHI redaction and PDF export.",
   "author": "Ethan",
   "main": "main.js",
