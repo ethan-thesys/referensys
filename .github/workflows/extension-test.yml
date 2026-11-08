@@ -1,0 +1,28 @@
+# Builds the Chrome extension from the extension branch so it can be tried before release.
+# The zip is attached to the "extension-test" pre-release, which installed copies ignore.
+name: Extension test build
+on:
+  push:
+    branches: [extension]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node scripts/build-extension.js
+      - name: Publish the test zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete extension-test --yes --cleanup-tag 2>/dev/null || true
+          gh release create extension-test --prerelease --target "$GITHUB_SHA" --title "Chrome extension test build" \
+            --notes "Test build of the Chrome extension from the extension branch. Not an official release." \
+            dist-extension/Referensys-Extension-*.zip

@@ -1,4 +1,4 @@
-# Builds the Windows installer and publishes a GitHub release (tagged v<version>) whenever the version
+# Builds the Windows installer, the Android app and the Chrome extension, and publishes a GitHub release (tagged v<version>) whenever the version
 # in package.json changes on main. It can also be started by hand from the Actions tab.
 # Installed copies of Referensys see the new release and update themselves.
 name: Release
@@ -51,3 +51,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "v${{ steps.build.outputs.version }}" "${{ steps.build.outputs.apk }}" --clobber
+  extension:
+    needs: windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node scripts/build-extension.js
+      - name: Add the Chrome extension to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          v=$(node -p "require('./package.json').version")
+          gh release upload "v$v" dist-extension/Referensys-Extension-*.zip --clobber

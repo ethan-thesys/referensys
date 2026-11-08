@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Referensys</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<header class="ph">
+  <svg class="ico" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0d6b6b"/><rect x="8" y="6" width="14" height="19" rx="2" fill="#fff"/><rect x="11" y="10" width="8" height="2" rx="1" fill="#0d6b6b"/><rect x="11" y="14" width="8" height="2" rx="1" fill="#0d6b6b" opacity=".6"/><rect x="11" y="18" width="5" height="2" rx="1" fill="#0d6b6b" opacity=".6"/><circle cx="23" cy="23" r="5" fill="#fff" stroke="#f2711c" stroke-width="2.5"/><circle cx="23" cy="23" r="1.5" fill="#f2711c"/></svg>
+  <b>Referensys</b><span class="acct" id="acct"></span>
+</header>
+
+<section id="recNow" hidden>
+  <div class="live"><span class="dot"></span><span><b id="liveL">Recording</b><small id="liveN"></small></span></div>
+  <div class="two"><button class="btn" id="liveGo">Go to the tab</button><button class="btn" id="livePause">Pause</button></div>
+  <button class="btn primary" id="liveDone">Done</button>
+</section>
+
+<section id="start">
+  <button class="choice" id="pTab">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="M2 9h20"/></svg>
+    <span><b>Record this tab</b><small>For websites and web apps. Every click becomes a step with a screenshot, a title and instructions.</small></span>
+  </button>
+  <p class="note" id="tabNote" hidden></p>
+  <button class="choice" id="pScreen">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    <span><b>Record my screen</b><small>For desktop programs and remote desktop. A step is taken when the screen changes, or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>.</small></span>
+  </button>
+</section>
+
+<section class="find" id="find">
+  <label class="rh" for="pQ">Find an SOP</label>
+  <input id="pQ" type="search" placeholder="Search titles and steps" autocomplete="off">
+  <div id="pRes" aria-live="polite"></div>
+  <button class="btn" id="pLib">Open the library</button>
+</section>
+
+<script src="lib/pdf-lib.min.js"></script>
+<script src="core.js"></script>
+<script src="google-client.js"></script>
+<script src="auth.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>
