@@ -38,9 +38,12 @@
           seen[m] = 1; st.push(m);
         }
       }
-      if (n >= GW * GH * 0.002) parts.push({ n, x0, y0, x1, y1 });
+      if (n) parts.push({ n, x0, y0, x1, y1 });
     }
-    if (!parts.length) return null;
+    // Sizeable changes win; if there are none, the biggest small one (a ticked box, a switched option).
+    const big = parts.filter(p => p.n >= GW * GH * 0.002);
+    if (!big.length) { const small = parts.sort((a, b) => b.n - a.n)[0]; if (!small || small.n < 2) return null; parts.length = 0; parts.push(small); }
+    else { parts.length = 0; parts.push(...big); }
     const best = parts.reduce((u, p) => ({ x0: Math.min(u.x0, p.x0), y0: Math.min(u.y0, p.y0), x1: Math.max(u.x1, p.x1), y1: Math.max(u.y1, p.y1) }));
     const sx = cur.width / GW, sy = cur.height / GH;
     return { x: Math.floor(best.x0 * sx), y: Math.floor(best.y0 * sy), w: Math.ceil((best.x1 - best.x0 + 1) * sx), h: Math.ceil((best.y1 - best.y0 + 1) * sy) };
@@ -87,7 +90,10 @@
     let box = prev && prev.width === W && prev.height === H ? changed(prev, cur) : null;
     if (box && box.w * box.h > W * H * 0.9) box = null; // the whole screen changed: no one area to point at
     // Read the changed area, or the top of the screen for the first step (window and page titles live there).
-    const area = box ? { x: Math.max(0, box.x - 8), y: Math.max(0, box.y - 8), w: Math.min(W, box.w + 16), h: Math.min(H, box.h + 16) }
+    const small = box && box.w * box.h < W * H * 0.01;
+    // For a small change, also read beside it, where a box's or button's label usually is.
+    const padX = small ? Math.round(W * 0.15) : 8, padY = small ? Math.round(H * 0.02) : 8;
+    const area = box ? { x: Math.max(0, box.x - padX), y: Math.max(0, box.y - padY), w: Math.min(W, box.w + 2 * padX), h: Math.min(H, box.h + 2 * padY) }
       : { x: 0, y: 0, w: W, h: Math.round(H * 0.4) };
     area.w = Math.min(area.w, W - area.x); area.h = Math.min(area.h, H - area.y);
     const scale = area.w < 900 ? 2 : area.w > 2000 ? 2000 / area.w : 1;
@@ -108,6 +114,8 @@
     try { name = await Promise.race([job, limit]); } catch (e) { console.warn('Couldn’t read the screen', e); }
     const hl = box ? { x: Math.max(0, box.x - 6), y: Math.max(0, box.y - 6), w: Math.min(W, box.w + 12), h: Math.min(H, box.h + 12) } : null;
     if (!prev) return name ? { title: `Start on ${quote(name)}`, text: `Start on the ${quote(name)} screen.` } : null;
+    if (small) return name ? { title: `Click ${quote(name)}`, text: `Click ${quote(name)}, highlighted on the screen.`, box: hl }
+      : { title: 'Click the highlighted item', text: 'Click the item highlighted on the screen.', box: hl };
     if (name) return { title: `Open ${quote(name)}`, text: hl ? `Open ${quote(name)}. The highlighted area shows what changes on the screen.` : `Open ${quote(name)}.`, box: hl };
     return hl ? { title: 'Go to the next screen', text: 'The highlighted area shows what changes on the screen.', box: hl } : null;
   }

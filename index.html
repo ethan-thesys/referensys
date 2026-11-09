@@ -57,6 +57,9 @@ button,input,textarea{font:inherit;color:inherit}
 .menu span{font-size:12.5px;color:var(--muted)}
 .wrapRec{position:relative}
 
+.missed{margin:8px 12px 12px;padding:8px 10px;border:1px dashed var(--accent);border-radius:8px;background:none;color:var(--accent);font:600 13px var(--sans,inherit);cursor:pointer;text-align:left}.missed:hover{background:var(--soft)}
+.modal.wide{width:min(980px,calc(100vw - 32px));max-width:none}.filmGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;max-height:62vh;overflow:auto;margin:8px 0;padding:2px}
+.filmPick{display:flex;flex-direction:column;gap:4px;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:inherit;cursor:pointer;font:inherit;text-align:left}.filmPick:hover,.filmPick:focus-visible{border-color:var(--accent)}.filmPick img{width:100%;border-radius:6px;display:block}.filmPick span{font-weight:600;font-size:13px}.filmPick small{color:var(--muted);font-size:12px}.filmPick.used{opacity:.55;cursor:default}
 .recbar{display:flex;align-items:center;gap:12px;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--rec-soft);border-bottom:1px solid var(--line);flex-wrap:wrap}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--rec);animation:pulse 1.3s infinite}
 .paused .dot{animation:none;opacity:.4}
@@ -300,6 +303,7 @@ body.libOn main{display:none!important}
   <label id="autoWrap" hidden><input type="checkbox" id="autoT" checked> Capture on screen change</label>
   <button class="btn" id="btnCap" hidden>Capture now</button>
   <button class="btn" id="btnPip" hidden>Floating panel</button>
+  <button class="btn" id="btnMissedRec" hidden>Missed a screen?</button>
   <button class="btn" id="btnPause">Pause</button>
   <button class="btn primary" id="btnStop">Done</button>
 </div>
@@ -309,6 +313,7 @@ body.libOn main{display:none!important}
   <aside class="steps">
     <div class="steps-head">Steps <span class="count" id="count">0</span></div>
     <ol id="stepList"></ol>
+    <button class="missed" id="btnMissed" hidden>Missed a screen? Add it here</button>
   </aside>
   <section class="editor">
     <div class="tools">
@@ -573,6 +578,50 @@ function togglePause(){rec.paused=!rec.paused;$('#btnPause').textContent=rec.pau
   $('#recLabel').textContent=rec.paused?'Paused':(rec.mode==='sim'?'Recording the sample app':'Recording');
   if(rec.mode==='sim')$('#recStatus').textContent=rec.paused?'Clicks are not being recorded.':'Click through a task. Each click becomes a step.';else setAuto(!rec.paused)}
 
+/* ---------- Every screen, kept while recording the whole screen ----------
+   Screen recording can't see clicks, so a quick or tiny change can slip past the automatic steps.
+   Every time the screen settles after any change, a copy is kept here (up to 300), so a missed screen
+   can be added afterwards without recording again. */
+const FW=384,FH=216,fsmp=document.createElement('canvas');fsmp.width=FW;fsmp.height=FH;const fctx=fsmp.getContext('2d',{willReadFrequently:true});
+let film=[],filmG=null,filmPrev=null,filmStable=0,filmT0=0;
+function gray2(src){fctx.drawImage(src,0,0,FW,FH);const d=fctx.getImageData(0,0,FW,FH).data,g=new Uint8Array(FW*FH);for(let i=0,j=0;i<d.length;i+=4,j++)g[j]=(d[i]*3+d[i+1]*6+d[i+2])/10;return g}
+function pxDiff(a,b){let n=0;for(let i=0;i<a.length;i++)if(Math.abs(a[i]-b[i])>28)n++;return n}
+const toJpeg=(c,q)=>new Promise(r=>c.toBlob(r,'image/jpeg',q));
+async function keepFrame(c,stepId,g){g=g||gray2(c);
+  // The same screen as the last one kept (a step taken right as the screen settled): just mark it as that step.
+  const last=film[film.length-1];if(last&&last.g&&pxDiff(g,last.g)<6){if(stepId)last.stepId=stepId;updateMissed();return}
+  const f={t:Date.now()-filmT0,g,stepId:stepId||null,full:null,thumb:null};film.push(f);
+  while(film.length>300){const old=film.shift();if(old.thumb)URL.revokeObjectURL(old.thumb)}
+  const th=document.createElement('canvas');th.width=320;th.height=Math.max(1,Math.round(c.height*320/c.width));th.getContext('2d').drawImage(c,0,0,th.width,th.height);
+  const [full,small]=await Promise.all([toJpeg(c,0.92),toJpeg(th,0.8)]);if(!full||!small){film.splice(film.indexOf(f),1);return}
+  f.full=full;f.thumb=URL.createObjectURL(small);updateMissed()}
+function clearFilm(){film.forEach(f=>{if(f.thumb)URL.revokeObjectURL(f.thumb)});film=[];filmG=filmPrev=null;filmStable=0;updateMissed()}
+function updateMissed(){const b=$('#btnMissed'),r=$('#btnMissedRec');const extra=film.some(f=>!f.stepId||!state.steps.some(s=>s.id===f.stepId));
+  if(b)b.hidden=!film.length||rec.mode==='screen';if(r)r.hidden=!(rec.mode==='screen'&&film.length);if(b&&!b.hidden)b.textContent=extra?'Missed a screen? Add it here':'All recorded screens'}
+async function filmTick(src){const g=gray2(src);
+  filmStable=filmPrev&&pxDiff(g,filmPrev)<4?filmStable+1:0;filmPrev=g;
+  if(filmStable<1||(filmG&&pxDiff(g,filmG)<6))return null;
+  const w=src.videoWidth||src.width,h=src.videoHeight||src.height;const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(src,0,0,w,h);
+  filmG=g;return {c,g}}
+const mmss=ms=>{const s=Math.round(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+function missedPicker(){if(!film.length){toast('No recorded screens to choose from.');return}
+  const sc=document.createElement('div');sc.className='scrim';
+  const items=film.map((f,i)=>{if(!f.thumb)return'';const st=f.stepId&&state.steps.findIndex(s=>s.id===f.stepId);const n=st>=0&&st!==false&&st!==null?st+1:0;
+    return `<button class="filmPick${n?' used':''}" data-i="${i}" ${n?'aria-disabled="true"':''}><img src="${f.thumb}" alt="Screen at ${mmss(f.t)}"><span>${n?'Step '+n:'Add this screen'}</span><small>${mmss(f.t)}</small></button>`}).join('');
+  sc.innerHTML=`<div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="fpT"><h3 id="fpT">Add a missed screen</h3>
+    <p class="lead">Every screen from your recording, in order. Click one to add it as a step in the right place.</p>
+    <div class="filmGrid">${items}</div><div class="row"><button class="btn" data-x>Close</button></div></div>`;
+  sc.onclick=async e=>{if(e.target===sc||e.target.closest('[data-x]')){sc.remove();return}
+    const b=e.target.closest('.filmPick');if(!b||b.classList.contains('used'))return;const f=film[+b.dataset.i];
+    b.classList.add('used');b.querySelector('span').textContent='Adding…';
+    const s=await addFilmStep(f);if(!s)return;const n=state.steps.indexOf(s)+1;b.querySelector('span').textContent='Step '+n;toast('Added as step '+n+'.')};
+  document.body.appendChild(sc);const g=sc.querySelector('.filmGrid');const first=sc.querySelector('.filmPick:not(.used)');if(first)first.scrollIntoView({block:'nearest'});else g.scrollTop=g.scrollHeight}
+async function addFilmStep(f){const bmp=await createImageBitmap(f.full);const c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;c.getContext('2d').drawImage(bmp,0,0);if(bmp.close)bmp.close();
+  // Goes after the last step recorded before this screen.
+  let at=0;state.steps.forEach((s,i)=>{if(s.shotAt!=null&&s.shotAt<=f.t)at=i+1});
+  const s=newStep(c,{title:'',shotAt:f.t});state.steps.splice(at,0,s);f.stepId=s.id;state.sel=at;selBox=-1;touch();refreshThumb(s);renderList();loadForm();draw();updateMissed();
+  const prev=at>0?state.steps[at-1].img:null;describeShot(s,prev,c);return s}
+
 /* ============ OTHER WINDOW (screen-change capture) ============ */
 let stream=null,track=null,icap=null,stopTick=null,auto=true,busy=false,prevG=null,lastG=null,stable=0,pip=null,prevShot=null;
 const video=document.createElement('video');video.muted=true;video.playsInline=true;
@@ -584,15 +633,16 @@ function ticker(ms,fn){let id=null,w=null;const fallback=()=>{if(w){w.terminate(
   return()=>{if(w)w.terminate();if(id)clearInterval(id)}}
 async function frame(){if(icap&&track&&track.readyState==='live'){try{return await icap.grabFrame()}catch(e){}}return video.videoWidth?video:null}
 async function captureNow(){if(!track)return;const src=await frame();if(!src)return;const w=src.videoWidth||src.width,h=src.videoHeight||src.height;if(!w||!h)return;
-  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(src,0,0,w,h);lastG=gray(c);if(src.close)src.close();addStep(c,{title:''});pipFlash();describeShot(state.steps[state.steps.length-1],prevShot,c);prevShot=c}
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(src,0,0,w,h);lastG=gray(c);if(src.close)src.close();const t=Date.now()-filmT0;addStep(c,{title:'',shotAt:t});const s=state.steps[state.steps.length-1];pipFlash();describeShot(s,prevShot,c);prevShot=c;filmG=gray2(c);keepFrame(c,s.id,filmG)}
 // Screen recording only gets pictures, so where the app can read the screen (the Chrome extension), it suggests a title and marks what changed.
 async function describeShot(s,prev,c){if(!window.sop||!window.sop.describeScreen)return;let d;try{d=await window.sop.describeScreen(prev,c)}catch(e){console.error(e);return}
   if(!d||!state.steps.includes(s))return;s.fromScreen=true;if(!s.title&&d.title){s.title=d.title;s.auto=true}if(!s.text&&d.text){s.text=d.text;s.autoText=true}
   if(d.box&&!s.boxes.length)s.boxes.push({type:'highlight',...d.box});refreshThumb(s);renderList();if(state.steps[state.sel]===s){loadForm();draw()}touch()}
-async function tick(){if(!track||!auto||busy)return;busy=true;try{const src=await frame();if(!src)return;const g=gray(src);if(src.close)src.close();
+async function tick(){if(!track||busy)return;busy=true;try{const src=await frame();if(!src)return;const g=gray(src);const keep=await filmTick(src);if(src.close)src.close();if(keep)keepFrame(keep.c,null,keep.g);if(!auto)return;
   if(prevG)stable=diff(g,prevG)<0.003?stable+1:0;prevG=g;
   if(lastG&&stable>=1&&diff(g,lastG)>0.006){await captureNow();stable=0}}finally{busy=false}}
 const blockedMsg='This test page runs inside Claude, which doesn\'t allow screen recording. Use the <b>Sample app</b> here. To record other apps, open the downloaded <b>Referensys</b> in Chrome or Edge.';
+$('#btnMissed').onclick=missedPicker;$('#btnMissedRec').onclick=missedPicker;
 async function startScreen(){if(rec.on)return;
   if(!navigator.mediaDevices?.getDisplayMedia){info('Screen recording isn\'t available here',blockedMsg);return}
   const t0=performance.now();
@@ -601,11 +651,11 @@ async function startScreen(){if(rec.on)return;
   dropExample();track=stream.getVideoTracks()[0];track.addEventListener('ended',stopScreen);
   icap=null;if('ImageCapture' in window){try{icap=new ImageCapture(track)}catch(e){}}
   video.srcObject=stream;try{await video.play()}catch(e){}
-  rec.on=true;rec.mode='screen';rec.paused=false;rec.first=state.steps.length;prevG=lastG=prevShot=null;stable=0;
+  rec.on=true;rec.mode='screen';rec.paused=false;rec.first=state.steps.length;prevG=lastG=prevShot=null;stable=0;clearFilm();filmT0=Date.now();
   $('#recbar').hidden=false;$('#autoWrap').hidden=$('#btnCap').hidden=$('#btnPip').hidden=false;$('#btnPause').hidden=true;
   $('#recLabel').textContent='Recording';setAuto(true);setTimeout(captureNow,700);stopTick=ticker(300,tick)}
 function stopScreen(){if(stopTick){stopTick();stopTick=null}if(stream)stream.getTracks().forEach(t=>t.stop());stream=track=icap=null;video.srcObject=null;
-  rec.on=false;rec.mode=null;$('#recbar').hidden=true;if(pip){pip.close();pip=null}const n=state.steps.length-rec.first;if(n)select(rec.first);toast(n?'Recording stopped. Now cover personal details on each step.':'No steps recorded.')}
+  rec.on=false;rec.mode=null;$('#recbar').hidden=true;updateMissed();if(pip){pip.close();pip=null}const n=state.steps.length-rec.first;if(n)select(rec.first);toast(n?'Recording stopped. Now cover personal details on each step.':'No steps recorded.')}
 function setAuto(v){auto=v;$('#autoT').checked=v;prevG=null;stable=0;if(rec.mode==='screen')$('#recStatus').textContent=v?'A step is saved when the screen changes and settles.':'Auto-capture paused. Use Capture now.';updatePip()}
 async function openPip(){if(!('documentPictureInPicture' in window)){toast('The floating panel needs Chrome or Edge 116 or newer.');return}if(pip)return;
   try{pip=await documentPictureInPicture.requestWindow({width:280,height:140})}catch(e){toast('Could not open the floating panel.');return}
@@ -681,7 +731,7 @@ function buildPdf(){const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',fo
     if(p===n)doc.text('Screenshots were redacted for privacy before distribution. Generated '+new Date().toLocaleDateString()+'.',M,H-40)}
   return doc}
 async function clearAll(){if(!state.steps.length)return;if(!state.example&&!await ask('Clear all steps?','Unsaved work will be lost.','Clear',true))return;
-  state.steps=[];state.sel=-1;selBox=-1;state.meta=blankMeta();fillMeta();setExample(false);dirty=false;drv.cur=null;saveStat();renderList();loadForm();draw();updatePip()}
+  state.steps=[];state.sel=-1;selBox=-1;state.meta=blankMeta();fillMeta();setExample(false);clearFilm();dirty=false;drv.cur=null;saveStat();renderList();loadForm();draw();updatePip()}
 
 /* ---------- Google Drive: save, library, rename, accounts ---------- */
 const D=window.sop&&window.sop.drive;
@@ -1001,7 +1051,7 @@ function screenPrompt(){const s=document.createElement('div');s.className='scrim
   s.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="spT"><h3 id="spT">Record your whole screen</h3>
     <ol style="margin:0;padding-left:20px;line-height:1.6"><li>Click <b>Start</b>. In Chrome's box, choose <b>Entire screen</b> and click <b>Share</b>.</li>
     <li>Do the task in any app, including remote desktop. A step is taken each time the screen changes and settles.</li>
-    <li>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd> any time to take a step yourself, even while another app is in front.</li>
+    <li>Referensys also keeps every screen along the way. If a quick click is missed, click <b>Missed a screen?</b> afterwards and add it. Nothing needs to be recorded again.</li>
     <li>Come back to this tab and click <b>Stop</b> when you're done.</li></ol>
     <div class="row"><button class="btn" data-r="0">Cancel</button><button class="btn primary" data-r="1">Start</button></div></div>`;
   s.onclick=e=>{const r=e.target.closest('[data-r]');if(!r&&e.target!==s)return;s.remove();if(r&&r.dataset.r==='1')startScreen()};
@@ -1022,7 +1072,7 @@ function handleParams(p){if(!p)return;
 if(EXT){const X=window.sop.ext;
   const st=document.createElement('style');st.textContent='.tabList{display:flex;flex-direction:column;gap:4px;max-height:50vh;overflow:auto;margin:4px 0}.tabPick{display:flex;align-items:center;gap:10px;text-align:left;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);cursor:pointer;font:inherit}.tabPick:hover,.tabPick:focus-visible{border-color:var(--accent)}.tabPick span{min-width:0}.tabPick b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tabPick small{color:var(--muted)}.tabPick img,.tIco{flex:none;width:16px;height:16px;border-radius:4px}.tIco{background:var(--line)}kbd{font:600 12px ui-monospace,monospace;padding:1px 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--panel)}';document.head.appendChild(st);
   $('#recNative').innerHTML='<b>A website tab</b><span>Record clicks in any open tab. Every click becomes a step with a screenshot, a click marker, a title and instructions.</span>';
-  $('#recScreen').hidden=false;$('#recScreen').innerHTML='<b>My whole screen</b><span>For desktop programs and remote desktop. A step is taken when the screen changes, or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>.</span>';
+  $('#recScreen').hidden=false;$('#recScreen').innerHTML='<b>My whole screen</b><span>For desktop programs and remote desktop. A step is taken each time the screen changes, and every screen is kept so a missed one can be added later.</span>';
   $('#recNative').onclick=()=>{toggleMenu(false);pickTab()};
   const li=document.querySelectorAll('#empty li');if(li[0])li[0].innerHTML='Click <b>Record</b> and choose <b>A website tab</b> or <b>My whole screen</b>.';if(li[1])li[1].innerHTML='Do the task as you normally would. Each click becomes a step.';
   X.onSteps(mobileSteps);X.onCapture(()=>{if(rec.mode==='screen')captureNow()});X.onNav(handleParams);
