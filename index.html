@@ -452,7 +452,7 @@ function move(i,d){const j=i+d;if(j<0||j>=state.steps.length)return;const a=stat
 async function delStep(i){if(!await ask('Delete this step?',`Step ${i+1} and its screenshot will be removed.`,'Delete',true))return;state.steps.splice(i,1);if(i<state.sel||state.sel>=state.steps.length)state.sel--;if(state.sel<0&&state.steps.length)state.sel=0;selBox=-1;touch();renderList();loadForm();draw();updatePip()}
 function loadForm(){const s=cur();['#fTitle','#fText','#fCaution','#fReviewed'].forEach(q=>$(q).disabled=!s);
   $('#stepLabel').textContent=s?`Step ${state.sel+1} of ${state.steps.length}`:'No step selected';
-  $('#fTitle').value=s?.title||'';$('#fText').value=s?.text||'';$('#fCaution').value=s?.caution||'';$('#fReviewed').checked=!!s?.reviewed;$('#checkWrap').classList.toggle('ok',!!s?.reviewed);$('#autoNote').hidden=!(s?.auto||s?.autoText)}
+  $('#fTitle').value=s?.title||'';$('#fText').value=s?.text||'';$('#fCaution').value=s?.caution||'';$('#fReviewed').checked=!!s?.reviewed;$('#checkWrap').classList.toggle('ok',!!s?.reviewed);$('#autoNote').hidden=!(s?.auto||s?.autoText);$('#autoNote').textContent=s?.fromScreen?'Suggested from the text that appeared on screen. Check it and edit as needed.':'Written automatically from what you clicked. Edit as needed.'}
 $('#fTitle').oninput=e=>{const s=cur();if(s){s.title=e.target.value;s.auto=false;$('#autoNote').hidden=true;touch();renderList()}};
 $('#fText').oninput=e=>{const s=cur();if(s){s.text=e.target.value;s.autoText=false;$('#autoNote').hidden=!s.auto;touch()}};
 $('#fCaution').oninput=e=>{const s=cur();if(s){s.caution=e.target.value;touch()}};
@@ -574,9 +574,9 @@ function togglePause(){rec.paused=!rec.paused;$('#btnPause').textContent=rec.pau
   if(rec.mode==='sim')$('#recStatus').textContent=rec.paused?'Clicks are not being recorded.':'Click through a task. Each click becomes a step.';else setAuto(!rec.paused)}
 
 /* ============ OTHER WINDOW (screen-change capture) ============ */
-let stream=null,track=null,icap=null,stopTick=null,auto=true,busy=false,prevG=null,lastG=null,stable=0,pip=null;
+let stream=null,track=null,icap=null,stopTick=null,auto=true,busy=false,prevG=null,lastG=null,stable=0,pip=null,prevShot=null;
 const video=document.createElement('video');video.muted=true;video.playsInline=true;
-const SW=96,SH=54,smp=document.createElement('canvas');smp.width=SW;smp.height=SH;const sctx=smp.getContext('2d',{willReadFrequently:true});
+const SW=192,SH=108,smp=document.createElement('canvas');smp.width=SW;smp.height=SH;const sctx=smp.getContext('2d',{willReadFrequently:true});
 function gray(src){sctx.drawImage(src,0,0,SW,SH);const d=sctx.getImageData(0,0,SW,SH).data,g=new Uint8Array(SW*SH);for(let i=0,j=0;i<d.length;i+=4,j++)g[j]=(d[i]*3+d[i+1]*6+d[i+2])/10;return g}
 function diff(a,b){let n=0;for(let i=0;i<a.length;i++)if(Math.abs(a[i]-b[i])>28)n++;return n/a.length}
 function ticker(ms,fn){let id=null,w=null;const fallback=()=>{if(w){w.terminate();w=null}if(!id)id=setInterval(fn,ms)};
@@ -584,10 +584,14 @@ function ticker(ms,fn){let id=null,w=null;const fallback=()=>{if(w){w.terminate(
   return()=>{if(w)w.terminate();if(id)clearInterval(id)}}
 async function frame(){if(icap&&track&&track.readyState==='live'){try{return await icap.grabFrame()}catch(e){}}return video.videoWidth?video:null}
 async function captureNow(){if(!track)return;const src=await frame();if(!src)return;const w=src.videoWidth||src.width,h=src.videoHeight||src.height;if(!w||!h)return;
-  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(src,0,0,w,h);lastG=gray(c);if(src.close)src.close();addStep(c,{title:''});pipFlash()}
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(src,0,0,w,h);lastG=gray(c);if(src.close)src.close();addStep(c,{title:''});pipFlash();describeShot(state.steps[state.steps.length-1],prevShot,c);prevShot=c}
+// Screen recording only gets pictures, so where the app can read the screen (the Chrome extension), it suggests a title and marks what changed.
+async function describeShot(s,prev,c){if(!window.sop||!window.sop.describeScreen)return;let d;try{d=await window.sop.describeScreen(prev,c)}catch(e){console.error(e);return}
+  if(!d||!state.steps.includes(s))return;s.fromScreen=true;if(!s.title&&d.title){s.title=d.title;s.auto=true}if(!s.text&&d.text){s.text=d.text;s.autoText=true}
+  if(d.box&&!s.boxes.length)s.boxes.push({type:'highlight',...d.box});refreshThumb(s);renderList();if(state.steps[state.sel]===s){loadForm();draw()}touch()}
 async function tick(){if(!track||!auto||busy)return;busy=true;try{const src=await frame();if(!src)return;const g=gray(src);if(src.close)src.close();
   if(prevG)stable=diff(g,prevG)<0.003?stable+1:0;prevG=g;
-  if(lastG&&stable>=2&&diff(g,lastG)>0.02){await captureNow();stable=0}}finally{busy=false}}
+  if(lastG&&stable>=1&&diff(g,lastG)>0.006){await captureNow();stable=0}}finally{busy=false}}
 const blockedMsg='This test page runs inside Claude, which doesn\'t allow screen recording. Use the <b>Sample app</b> here. To record other apps, open the downloaded <b>Referensys</b> in Chrome or Edge.';
 async function startScreen(){if(rec.on)return;
   if(!navigator.mediaDevices?.getDisplayMedia){info('Screen recording isn\'t available here',blockedMsg);return}
@@ -597,9 +601,9 @@ async function startScreen(){if(rec.on)return;
   dropExample();track=stream.getVideoTracks()[0];track.addEventListener('ended',stopScreen);
   icap=null;if('ImageCapture' in window){try{icap=new ImageCapture(track)}catch(e){}}
   video.srcObject=stream;try{await video.play()}catch(e){}
-  rec.on=true;rec.mode='screen';rec.paused=false;rec.first=state.steps.length;prevG=lastG=null;stable=0;
+  rec.on=true;rec.mode='screen';rec.paused=false;rec.first=state.steps.length;prevG=lastG=prevShot=null;stable=0;
   $('#recbar').hidden=false;$('#autoWrap').hidden=$('#btnCap').hidden=$('#btnPip').hidden=false;$('#btnPause').hidden=true;
-  $('#recLabel').textContent='Recording';setAuto(true);setTimeout(captureNow,700);stopTick=ticker(700,tick)}
+  $('#recLabel').textContent='Recording';setAuto(true);setTimeout(captureNow,700);stopTick=ticker(300,tick)}
 function stopScreen(){if(stopTick){stopTick();stopTick=null}if(stream)stream.getTracks().forEach(t=>t.stop());stream=track=icap=null;video.srcObject=null;
   rec.on=false;rec.mode=null;$('#recbar').hidden=true;if(pip){pip.close();pip=null}const n=state.steps.length-rec.first;if(n)select(rec.first);toast(n?'Recording stopped. Now cover personal details on each step.':'No steps recorded.')}
 function setAuto(v){auto=v;$('#autoT').checked=v;prevG=null;stable=0;if(rec.mode==='screen')$('#recStatus').textContent=v?'A step is saved when the screen changes and settles.':'Auto-capture paused. Use Capture now.';updatePip()}

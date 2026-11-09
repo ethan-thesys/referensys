@@ -19,7 +19,13 @@ copy('node_modules/html2canvas/dist/html2canvas.min.js', 'lib/html2canvas.min.js
 copy('node_modules/jspdf/dist/jspdf.umd.min.js', 'lib/jspdf.umd.min.js');
 copy('node_modules/pdf-lib/dist/pdf-lib.min.js', 'lib/pdf-lib.min.js');
 copy('web/core.js', 'core.js');
-for (const f of ['sw.js', 'idb.js', 'content.js', 'auth.js', 'bridge.js', 'tick.js', 'popup.html', 'popup.css', 'popup.js']) copy('extension/' + f, f);
+// Reads text on screen for whole-screen steps, on this computer.
+fs.mkdirSync(path.join(out, 'lib', 'ocr'), { recursive: true });
+copy('node_modules/tesseract.js/dist/tesseract.min.js', 'lib/ocr/tesseract.min.js');
+copy('node_modules/tesseract.js/dist/worker.min.js', 'lib/ocr/worker.min.js');
+for (const f of ['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-relaxedsimd-lstm.wasm.js']) copy('node_modules/tesseract.js-core/' + f, 'lib/ocr/' + f);
+copy('node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz', 'lib/ocr/eng.traineddata.gz');
+for (const f of ['sw.js', 'idb.js', 'screenread.js', 'content.js', 'auth.js', 'bridge.js', 'tick.js', 'popup.html', 'popup.css', 'popup.js']) copy('extension/' + f, f);
 for (const n of [16, 32, 48, 128]) copy(`extension/icons/${n}.png`, `icons/${n}.png`);
 
 // The Google sign-in key for the extension isn't secret (it only works from this extension's address).
@@ -43,7 +49,7 @@ fs.writeFileSync(path.join(out, 'editor.js'), html.slice(start + '<script>\n'.le
 html = html.slice(0, start) + '<script src="editor.js"></script>' + html.slice(end + '</script>'.length);
 swap('<script src="node_modules/html2canvas/dist/html2canvas.min.js"></script>', '<script src="lib/html2canvas.min.js"></script>');
 swap('<script src="node_modules/jspdf/dist/jspdf.umd.min.js"></script>',
-  ['lib/jspdf.umd.min.js', 'lib/pdf-lib.min.js', 'core.js', 'google-client.js', 'idb.js', 'auth.js', 'bridge.js'].map(s => `<script src="${s}"></script>`).join('\n'));
+  ['lib/jspdf.umd.min.js', 'lib/pdf-lib.min.js', 'lib/ocr/tesseract.min.js', 'core.js', 'google-client.js', 'idb.js', 'auth.js', 'screenread.js', 'bridge.js'].map(s => `<script src="${s}"></script>`).join('\n'));
 if (/\son[a-z]+="/i.test(html)) throw new Error('index.html has inline event handlers, which Chrome extensions block');
 fs.writeFileSync(path.join(out, 'editor.html'), html);
 

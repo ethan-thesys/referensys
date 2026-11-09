@@ -93,6 +93,7 @@
     onClick: noop, onLabel: noop, onStop: noop, onPause: noop, count: noop, pause: noop, done: noop, onPanelState: noop,
     version: async () => manifest.version,
     tickWorker: chrome.runtime.getURL('tick.js'),
+    describeScreen: (prev, cur) => window.ReferensysScreenRead.describe(prev, cur),
     ext: {
       params,
       tabs,
