@@ -53,6 +53,7 @@ button,input,textarea{font:inherit;color:inherit}
 .menu{position:absolute;top:calc(100% + 4px);width:min(360px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;display:flex;flex-direction:column;gap:2px;z-index:20}
 .menu button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:0;background:none;border-radius:8px;padding:10px 12px;cursor:pointer}
 .menu button:hover{background:var(--soft)}
+.menuNote{margin:4px 6px 6px;padding:9px 11px;border-radius:8px;background:var(--soft);font-size:13px;line-height:1.45}
 .menu b{font-size:14px}
 .menu span{font-size:12.5px;color:var(--muted)}
 .wrapRec{position:relative}
@@ -286,6 +287,7 @@ body.libOn main{display:none!important}
   <div class="wrapRec">
     <button class="btn rec" id="btnRec" aria-haspopup="true" aria-expanded="false">● Record</button>
     <div class="menu" id="recMenu" hidden>
+      <p class="menuNote" id="recNote" hidden></p>
       <button id="recNative" hidden><b>My screen</b><span>Use any program as normal. Every click becomes a step with a screenshot, a click marker and a written title.</span></button>
       <button id="recSim"><b>Sample app</b><span>Practice recording on a built-in app with fake data. Every click becomes a step.</span></button>
       <button id="recScreen"><b>Another app or window</b><span>Records any web or desktop app. Needs the downloaded copy opened in Chrome or Edge.</span></button>
@@ -592,7 +594,7 @@ function startSim(){if(rec.on)return;dropExample();resetP();simRender();rec.on=t
 async function stopSim(){$('#recStatus').textContent='Finishing the last step…';await rec.chain;rec.on=false;rec.mode=null;
   document.body.classList.remove('recording');$('#simWrap').hidden=true;$('#recbar').hidden=true;
   const n=state.steps.length-rec.first;if(n>0)select(rec.first);else{renderList();loadForm();draw()}
-  toast(n?`${n} step${n>1?'s':''} recorded. Now cover personal details on each one.`:'No steps recorded.')}
+  toast(n?recordedMsg(rec.first,n):'No steps recorded.')}
 function togglePause(){rec.paused=!rec.paused;$('#btnPause').textContent=rec.paused?'Resume':'Pause';$('#recbar').classList.toggle('paused',rec.paused);
   $('#recLabel').textContent=rec.paused?'Paused':(rec.mode==='sim'?'Recording the sample app':'Recording');
   if(rec.mode==='sim')$('#recStatus').textContent=rec.paused?'Clicks are not being recorded.':'Click through a task. Each click becomes a step.';else setAuto(!rec.paused)}
@@ -674,7 +676,7 @@ async function startScreen(){if(rec.on)return;
   $('#recbar').hidden=false;$('#autoWrap').hidden=$('#btnCap').hidden=$('#btnPip').hidden=false;$('#btnPause').hidden=true;
   $('#recLabel').textContent='Recording';setAuto(true);setTimeout(captureNow,700);stopTick=ticker(300,tick)}
 function stopScreen(){if(stopTick){stopTick();stopTick=null}if(stream)stream.getTracks().forEach(t=>t.stop());stream=track=icap=null;video.srcObject=null;
-  rec.on=false;rec.mode=null;$('#recbar').hidden=true;updateMissed();if(pip){pip.close();pip=null}const n=state.steps.length-rec.first;if(n)select(rec.first);toast(n?'Recording stopped. Now cover personal details on each step.':'No steps recorded.')}
+  rec.on=false;rec.mode=null;$('#recbar').hidden=true;updateMissed();if(pip){pip.close();pip=null}const n=state.steps.length-rec.first;if(n)select(rec.first);toast(n?recordedMsg(rec.first,n):'No steps recorded.')}
 function setAuto(v){auto=v;$('#autoT').checked=v;prevG=null;stable=0;if(rec.mode==='screen')$('#recStatus').textContent=v?'A step is saved when the screen changes and settles.':'Auto-capture paused. Use Capture now.';updatePip()}
 async function openPip(){if(!('documentPictureInPicture' in window)){toast('The floating panel needs Chrome or Edge 116 or newer.');return}if(pip)return;
   try{pip=await documentPictureInPicture.requestWindow({width:280,height:140})}catch(e){toast('Could not open the floating panel.');return}
@@ -954,7 +956,11 @@ async function saveToDrive(){if(!D)return saveProject();
   catch(e){close();info('Couldn\'t save',esc(e.message||String(e)))}}
 
 /* ---------- wiring ---------- */
-function toggleMenu(open){const m=$('#recMenu');m.hidden=open===undefined?!m.hidden:!open;$('#btnRec').setAttribute('aria-expanded',!m.hidden)}
+// Recording adds to the SOP that's open, which isn't obvious, so the menu says so.
+function recordedMsg(first,n){const st=n===1?'step':'steps';return first>0?`Added ${n} ${st} to the end of this SOP (step ${first+1}${n>1?'–'+(first+n):''}). Use # on a step to move it, then cover personal details.`:`${n} ${st} recorded. Now cover personal details on each one.`}
+function recNote(){const n=$('#recNote');if(!n)return;const k=state.example?0:state.steps.length;n.hidden=!k;
+  if(k)n.innerHTML=`New steps are added to the end of <b>${esc(state.meta.title||'this SOP')}</b> (${k} step${k===1?'':'s'} now). Move them with <b>#</b> afterwards. To start a new SOP instead, click <b>Clear</b> first.`}
+function toggleMenu(open){const m=$('#recMenu');m.hidden=open===undefined?!m.hidden:!open;if(!m.hidden)recNote();$('#btnRec').setAttribute('aria-expanded',!m.hidden)}
 $('#btnRec').onclick=e=>{e.stopPropagation();if(rec.on)return;if(libOn())showLib(false);toggleMenu()};
 document.addEventListener('click',e=>{if(!e.target.closest('.wrapRec'))toggleMenu(false)});
 $('#recSim').onclick=()=>{toggleMenu(false);startSim()};
@@ -1015,7 +1021,7 @@ function applyLabel(s,l){if(s.auto&&l.title)s.title=l.title;if(s.autoText&&l.tex
 function nativeLabel(l){const s=state.steps.find(x=>x.clickId===l.clickId);if(s){applyLabel(s,l);if(!rec.on){renderList();loadForm()}}else nat.labels.set(l.clickId,l)}
 async function stopNative(){if(rec.mode!=='native')return;rec.on=false;rec.mode=null;stopStreams();await window.sop.stopClicks();
   const n=state.steps.length-rec.first;renderList();if(n)select(rec.first);else{loadForm();draw()}
-  toast(n?`${n} step${n>1?'s':''} recorded. Now cover personal details on each one.`:'No steps recorded.')}
+  toast(n?recordedMsg(rec.first,n):'No steps recorded.')}
 /* ---------- Android: every tap in any app becomes a step ---------- */
 const MOBILE=!!(window.sop&&window.sop.mobile);
 function mobilePerm(){const s=document.createElement('div');s.className='scrim';
@@ -1034,7 +1040,7 @@ async function mobileSteps(list){if(!list||!list.length){toast('No steps recorde
   const first=state.steps.length;
   for(const p of list){try{const im=await loadImg(p.image);const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);
     const sx=p.vw?c.width/p.vw:0,s=sx||c.width/320;addStep(c,{title:p.title||(sx?'Click here':'Tap here'),text:p.text||'',auto:true,autoText:true,app:p.app||'',boxes:p.x!=null?[markerBox(sx?p.x*sx:p.x,sx?p.y*sx:p.y,s)]:[]},true)}catch(e){console.error(e)}}
-  renderList();select(first);toast(`${list.length} step${list.length>1?'s':''} recorded. Now cover personal details on each one.`)}
+  renderList();select(first);toast(recordedMsg(first,list.length))}
 
 if(NATIVE){window.sop.onClick(nativeClick);window.sop.onLabel(nativeLabel);window.sop.onStop(stopNative);window.sop.onPause(p=>{rec.paused=p});
   $('#recNative').hidden=false;$('#optWrap').hidden=false;$('#recScreen').hidden=true;$('#optText').checked=useScreenText;
