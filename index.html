@@ -78,6 +78,8 @@ body.recording .side,body.recording .tools,body.recording #cv,body.recording #em
 .steps{border-right:1px solid var(--line)}
 .side{border-left:1px solid var(--line)}
 .steps-head{padding:12px 14px;font-weight:700;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--panel);z-index:1}
+.mini{border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:7px;padding:3px 9px;font:600 12px var(--sans,inherit);cursor:pointer}.mini:hover{border-color:var(--accent)}
+.step.dragging{opacity:.4}.step.dropBefore{box-shadow:0 -3px 0 var(--accent)}.step.dropAfter{box-shadow:0 3px 0 var(--accent)}
 .count{font:500 12px var(--mono);color:var(--muted);background:var(--bg);border-radius:99px;padding:2px 8px}
 #stepList{list-style:none;margin:0;padding:8px;display:flex;flex-direction:column;gap:2px}
 .step{display:grid;grid-template-columns:80px minmax(0,1fr);gap:10px;padding:8px;border-radius:9px;cursor:pointer;border:1px solid transparent;position:relative}
@@ -311,7 +313,7 @@ body.libOn main{display:none!important}
 <section id="lib" hidden></section>
 <main>
   <aside class="steps">
-    <div class="steps-head">Steps <span class="count" id="count">0</span></div>
+    <div class="steps-head"><span>Steps <span class="count" id="count">0</span></span><button class="mini" id="btnCheckAll" hidden title="Mark every step as privacy checked">Check all</button></div>
     <ol id="stepList"></ol>
     <button class="missed" id="btnMissed" hidden>Missed a screen? Add it here</button>
   </aside>
@@ -448,11 +450,28 @@ function renderList(flashId){const ol=$('#stepList');ol.innerHTML='';
   if(!state.steps.length)ol.innerHTML='<li class="listEmpty">No steps yet. Record a task and each click will appear here.</li>';
   state.steps.forEach((s,i)=>{const li=document.createElement('li');li.className='step'+(i===state.sel?' on':'')+(s.id===flashId?' new':'');
     const n=redactCount(s);
-    li.innerHTML=`<img alt="" src="${s.thumb}"><div class="meta"><span class="n">STEP ${String(i+1).padStart(2,'0')}</span><span class="t">${esc(s.title||'Untitled step')}</span><span class="chips"><span class="badge ${s.reviewed?'ok':'warn'}">${s.reviewed?'Privacy checked':'Check privacy'}</span>${n?`<span class="badge ok">${n} redacted</span>`:''}</span></div><div class="ctl"><button data-a="up" title="Move up" aria-label="Move up">↑</button><button data-a="down" title="Move down" aria-label="Move down">↓</button><button data-a="del" title="Delete step" aria-label="Delete step">✕</button></div>`;
-    li.onclick=e=>{const a=e.target.closest('button')?.dataset.a;if(a==='up')move(i,-1);else if(a==='down')move(i,1);else if(a==='del')delStep(i);else select(i)};ol.appendChild(li)});
-  $('#count').textContent=state.steps.length;
+    li.innerHTML=`<img alt="" src="${s.thumb}"><div class="meta"><span class="n">STEP ${String(i+1).padStart(2,'0')}</span><span class="t">${esc(s.title||'Untitled step')}</span><span class="chips"><span class="badge ${s.reviewed?'ok':'warn'}">${s.reviewed?'Privacy checked':'Check privacy'}</span>${n?`<span class="badge ok">${n} redacted</span>`:''}</span></div><div class="ctl"><button data-a="up" title="Move up" aria-label="Move up">↑</button><button data-a="down" title="Move down" aria-label="Move down">↓</button><button data-a="to" title="Move to another position" aria-label="Move to another position">#</button><button data-a="del" title="Delete step" aria-label="Delete step">✕</button></div>`;
+    li.onclick=e=>{const a=e.target.closest('button')?.dataset.a;if(a==='up')move(i,-1);else if(a==='down')move(i,1);else if(a==='to')moveAsk(i);else if(a==='del')delStep(i);else select(i)};
+    // Drag a step up or down the list to move it.
+    li.draggable=true;li.ondragstart=e=>{dragFrom=i;li.classList.add('dragging');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',String(i))}catch(err){}};
+    li.ondragend=()=>{dragFrom=-1;ol.querySelectorAll('.dropBefore,.dropAfter,.dragging').forEach(x=>x.classList.remove('dropBefore','dropAfter','dragging'))};
+    li.ondragover=e=>{if(dragFrom<0)return;e.preventDefault();const r=li.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;ol.querySelectorAll('.dropBefore,.dropAfter').forEach(x=>x.classList.remove('dropBefore','dropAfter'));li.classList.add(after?'dropAfter':'dropBefore')};
+    li.ondrop=e=>{if(dragFrom<0)return;e.preventDefault();const r=li.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;let to=i+(after?1:0);if(dragFrom<to)to--;const from=dragFrom;dragFrom=-1;moveTo(from,to)};
+    ol.appendChild(li)});
+  $('#count').textContent=state.steps.length;$('#btnCheckAll').hidden=!state.steps.length||state.example||state.steps.every(s=>s.reviewed);
   if(flashId){const el=ol.querySelector('.new');el?.scrollIntoView({block:'nearest',inline:'nearest'})}}
 function select(i){state.sel=i;selBox=-1;renderList();loadForm();draw()}
+let dragFrom=-1;
+function moveTo(i,j){j=Math.max(0,Math.min(state.steps.length-1,j));if(i===j||i<0)return;const a=state.steps,sel=a[state.sel];const [s]=a.splice(i,1);a.splice(j,0,s);state.sel=a.indexOf(sel);touch();renderList(s.id);loadForm();toast(`Moved to step ${j+1}.`)}
+function moveAsk(i){const n=state.steps.length,sc=document.createElement('div');sc.className='scrim';
+  sc.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mvT"><h3 id="mvT">Move step ${i+1}</h3><label style="display:flex;align-items:center;gap:10px">Move it to step <input id="mvN" type="number" min="1" max="${n}" value="${i+1}" style="width:90px"> of ${n}</label><p class="lead">The other steps shift to make room.</p><div class="row"><button class="btn" data-r="0">Cancel</button><button class="btn primary" data-r="1">Move</button></div></div>`;
+  const go=ok=>{const v=parseInt(sc.querySelector('#mvN').value,10);sc.remove();if(ok&&v>=1&&v<=n)moveTo(i,v-1)};
+  sc.onclick=e=>{const r=e.target.closest('[data-r]');if(e.target===sc)go(false);else if(r)go(r.dataset.r==='1')};
+  sc.onkeydown=e=>{if(e.key==='Enter')go(true);if(e.key==='Escape')go(false)};
+  document.body.appendChild(sc);const inp=sc.querySelector('#mvN');inp.focus();inp.select()}
+$('#btnCheckAll').onclick=async()=>{const un=state.steps.filter(s=>!s.reviewed).length;if(!un)return;
+  if(!await ask(`Mark all ${state.steps.length} steps as checked?`,`${un} step${un===1?' hasn\'t':'s haven\'t'} been ticked yet. Only do this after you\'ve looked through every step: personal details covered in the screenshots, and left out of titles and instructions.`,'Mark all checked'))return;
+  state.steps.forEach(s=>s.reviewed=true);touch();renderList();loadForm();toast('All steps are marked as privacy checked.')};
 function move(i,d){const j=i+d;if(j<0||j>=state.steps.length)return;const a=state.steps;[a[i],a[j]]=[a[j],a[i]];if(state.sel===i)state.sel=j;else if(state.sel===j)state.sel=i;touch();renderList();loadForm()}
 async function delStep(i){if(!await ask('Delete this step?',`Step ${i+1} and its screenshot will be removed.`,'Delete',true))return;state.steps.splice(i,1);if(i<state.sel||state.sel>=state.steps.length)state.sel--;if(state.sel<0&&state.steps.length)state.sel=0;selBox=-1;touch();renderList();loadForm();draw();updatePip()}
 function loadForm(){const s=cur();['#fTitle','#fText','#fCaution','#fReviewed'].forEach(q=>$(q).disabled=!s);
@@ -651,7 +670,7 @@ async function startScreen(){if(rec.on)return;
   dropExample();track=stream.getVideoTracks()[0];track.addEventListener('ended',stopScreen);
   icap=null;if('ImageCapture' in window){try{icap=new ImageCapture(track)}catch(e){}}
   video.srcObject=stream;try{await video.play()}catch(e){}
-  rec.on=true;rec.mode='screen';rec.paused=false;rec.first=state.steps.length;prevG=lastG=prevShot=null;stable=0;clearFilm();filmT0=Date.now();
+  rec.on=true;rec.mode='screen';rec.paused=false;rec.first=state.steps.length;prevG=lastG=null;prevShot=state.example?null:(state.steps[state.steps.length-1]?.img||null);// adding to an SOP: compare with its last stepstable=0;clearFilm();filmT0=Date.now();
   $('#recbar').hidden=false;$('#autoWrap').hidden=$('#btnCap').hidden=$('#btnPip').hidden=false;$('#btnPause').hidden=true;
   $('#recLabel').textContent='Recording';setAuto(true);setTimeout(captureNow,700);stopTick=ticker(300,tick)}
 function stopScreen(){if(stopTick){stopTick();stopTick=null}if(stream)stream.getTracks().forEach(t=>t.stop());stream=track=icap=null;video.srcObject=null;
