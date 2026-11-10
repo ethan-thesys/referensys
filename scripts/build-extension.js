@@ -25,7 +25,7 @@ copy('node_modules/tesseract.js/dist/tesseract.min.js', 'lib/ocr/tesseract.min.j
 copy('node_modules/tesseract.js/dist/worker.min.js', 'lib/ocr/worker.min.js');
 for (const f of ['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-relaxedsimd-lstm.wasm.js']) copy('node_modules/tesseract.js-core/' + f, 'lib/ocr/' + f);
 copy('node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz', 'lib/ocr/eng.traineddata.gz');
-for (const f of ['sw.js', 'idb.js', 'screenread.js', 'content.js', 'auth.js', 'bridge.js', 'tick.js', 'popup.html', 'popup.css', 'popup.js']) copy('extension/' + f, f);
+for (const f of ['sw.js', 'idb.js', 'screenread.js', 'content.js', 'auth.js', 'bridge.js', 'tick.js', 'popup.html', 'popup.css', 'popup.js', 'team-test.html', 'team-test.js']) copy('extension/' + f, f);
 for (const n of [16, 32, 48, 128]) copy(`extension/icons/${n}.png`, `icons/${n}.png`);
 
 // The Google sign-in key for the extension isn't secret (it only works from this extension's address).

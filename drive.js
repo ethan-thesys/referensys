@@ -83,6 +83,70 @@ function signIn() {
   return signingIn;
 }
 
+// ---------- temporary test: can Referensys read a library someone else shared, after picking it in Google's picker? ----------
+// Uses only drive.file and reads nothing but what the person picks. Remove once the team feature is built.
+let picking = null;
+function pickTest() {
+  if (!CLIENT_ID || !CLIENT_SECRET) return Promise.reject(new DriveError('Google sign-in isn’t set up in this copy of Referensys.', 'config'));
+  if (picking) return picking;
+  picking = new Promise((resolve, reject) => {
+    const verifier = crypto.randomBytes(48).toString('base64url');
+    const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+    const stateTok = crypto.randomBytes(16).toString('hex');
+    let timer, redirect;
+    const server = http.createServer(async (req, res) => {
+      const u = new URL(req.url, 'http://127.0.0.1');
+      if (u.pathname !== '/') { res.writeHead(404); res.end(); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!doctype html><meta charset="utf-8"><title>Referensys</title><body style="font:16px system-ui;max-width:520px;margin:80px auto;padding:0 16px"><h2>Thanks</h2><p>Go back to Referensys to see the test results.</p></body>');
+      clearTimeout(timer); server.close();
+      const out = [], line = (ok, text) => out.push({ ok, text });
+      try {
+        if (u.searchParams.get('state') !== stateTok) throw new DriveError('The reply from Google didn’t match. Try again.', 'state');
+        if (u.searchParams.get('error')) throw new DriveError('Google said: ' + u.searchParams.get('error'), 'denied');
+        const picked = (u.searchParams.get('picked_file_ids') || '').split(',').filter(Boolean);
+        const tok = await tokenRequest({ grant_type: 'authorization_code', code: u.searchParams.get('code'), code_verifier: verifier, redirect_uri: redirect });
+        line(true, 'Signed in. Google gave Referensys an access key.');
+        line(picked.length > 0, picked.length ? `Picked ${picked.length} item${picked.length > 1 ? 's' : ''}.` : 'Nothing was picked, or Google didn’t say what. Check that Google Picker API is turned on in the Referensys project.');
+        const get = async url => { const r = await fetch(url, { headers: { Authorization: 'Bearer ' + tok.access_token } }); return r; };
+        let folderOk = false, seen = 0, read = false;
+        for (const id of picked) {
+          const f = await get(`${API}/files/${id}?fields=id,name,mimeType,owners(emailAddress),capabilities(canEdit)`);
+          if (!f.ok) { line(false, `Couldn’t open the picked item (HTTP ${f.status}).`); continue; }
+          const m = await f.json(), isFolder = m.mimeType === 'application/vnd.google-apps.folder';
+          line(true, `${m.name}: ${isFolder ? 'folder' : m.mimeType}, owned by ${((m.owners || [])[0] || {}).emailAddress || 'unknown'}, ${m.capabilities && m.capabilities.canEdit ? 'you can edit it' : 'view only'}.`);
+          if (!isFolder) continue;
+          folderOk = true;
+          const l = await get(`${API}/files?q=${encodeURIComponent(`'${id}' in parents and trashed=false`)}&fields=files(id,name,mimeType)&pageSize=200`);
+          if (!l.ok) { line(false, `Couldn’t list what’s inside the folder (HTTP ${l.status}).`); continue; }
+          const files = (await l.json()).files || [];
+          seen += files.length;
+          line(files.length > 0, files.length ? `Referensys can see ${files.length} file${files.length > 1 ? 's' : ''} inside: ${files.slice(0, 6).map(x => x.name).join(', ')}${files.length > 6 ? '…' : ''}`
+            : 'The folder looks empty to Referensys. If it has SOPs in Drive, Google only lets Referensys see the folder itself, not what’s in it.');
+          const pdf = files.find(x => x.mimeType === 'application/pdf');
+          if (pdf) {
+            const d = await get(`${API}/files/${pdf.id}?alt=media`);
+            if (!d.ok) { line(false, `Couldn’t download ${pdf.name} (HTTP ${d.status}).`); continue; }
+            const buf = Buffer.from(await d.arrayBuffer());
+            let steps = null; try { const t = await pdfdata.extract(buf); steps = t ? (JSON.parse(t).steps || []).length : null; } catch {}
+            read = true; line(true, `Opened ${pdf.name}${steps != null ? ` and read its ${steps} editable steps` : ''}.`);
+          }
+        }
+        const good = folderOk && seen > 0 && read;
+        resolve({ lines: out, good });
+      } catch (e) { line(false, e.message); resolve({ lines: out, good: false }); }
+    });
+    server.listen(0, '127.0.0.1', () => {
+      redirect = `http://127.0.0.1:${server.address().port}`;
+      const q = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: redirect, response_type: 'code', scope: 'https://www.googleapis.com/auth/drive.file',
+        code_challenge: challenge, code_challenge_method: 'S256', state: stateTok, prompt: 'consent', trigger_onepick: 'true', allow_folder_selection: 'true', allow_multiple: 'true' });
+      shell.openExternal('https://accounts.google.com/o/oauth2/v2/auth?' + q);
+    });
+    timer = setTimeout(() => { server.close(); reject(new DriveError('The test timed out. Try again.', 'timeout')); }, 5 * 60 * 1000);
+  }).finally(() => { picking = null; });
+  return picking;
+}
+
 async function tokenRequest(params) {
   let r;
   try {
@@ -240,6 +304,7 @@ const actions = {
     catch (e) { if (e.code === 'missing') { const l = await readIndex(email); await writeIndex(email, l.filter(x => x.id !== id)); } throw e; }
   },
   pdf: async pdfId => { if (!pdfId) throw new DriveError('This SOP has no PDF yet. Open it and save again.', 'missing'); await shell.openExternal(`https://drive.google.com/file/d/${pdfId}/view`); return {}; },
+  pickTest: () => pickTest(),
   rename: async ({ id, name }) => {
     const email = active(), list = await readIndex(email), e = list.find(x => x.id === id);
     if (!e) throw new DriveError('That SOP isn’t in your library any more.', 'missing');
@@ -259,7 +324,7 @@ function register(ipcMain, getWin) {
     ipcMain.handle('drive:' + k, async (_e, arg) => {
       try {
         const r = await fn(arg);
-        if (k === 'signIn') { const w = getWin(); if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } }
+        if (k === 'signIn' || k === 'pickTest') { const w = getWin(); if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } }
         return r;
       } catch (e) { console.error('Drive', k, e); return { error: e.message || String(e), code: e.code || 'error' }; }
     });

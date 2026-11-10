@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Referensys: shared library test</title>
+<style>
+:root{--bg:#f4f7f8;--panel:#fff;--ink:#14212b;--muted:#5a6b78;--line:#d6dee2;--accent:#0d6b6b;--ok:#1d7a4a;--bad:#b3261e;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1619;--panel:#162024;--ink:#e3ebef;--muted:#90a2ad;--line:#2b3a41;--accent:#34b3a7;--ok:#5fd394;--bad:#ff8a80;color-scheme:dark}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:28px 18px}
+h1{font-size:22px;margin:0 0 6px}p{margin:0 0 12px;color:var(--muted)}
+ol{padding-left:20px}li{margin:4px 0}
+button{padding:10px 16px;border:0;border-radius:9px;background:var(--accent);color:#fff;font:600 15px inherit;cursor:pointer}
+#log{margin-top:18px;display:flex;flex-direction:column;gap:6px}
+.r{padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}
+.ok{border-color:var(--ok)}.ok b{color:var(--ok)}.bad{border-color:var(--bad)}.bad b{color:var(--bad)}
+.verdict{font-size:17px;padding:14px}
+code{font:13px ui-monospace,Consolas,monospace}
+</style>
+</head>
+<body>
+<main>
+  <h1>Shared library test</h1>
+  <p>This checks whether Referensys can read a library someone else shared with you, using Google's file picker. It only reads; nothing is changed.</p>
+  <ol>
+    <li>Sign in with the account the library was <b>shared with</b> (not the owner).</li>
+    <li>In Google's picker, open <b>Shared with me</b>, choose the <b>Referensys SOPs</b> folder and click <b>Select</b>.</li>
+  </ol>
+  <button id="go">Pick a shared library</button>
+  <div id="log" aria-live="polite"></div>
+</main>
+<script src="lib/pdf-lib.min.js"></script>
+<script src="core.js"></script>
+<script src="google-client.js"></script>
+<script src="team-test.js"></script>
+</body>
+</html>

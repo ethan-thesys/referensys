@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('sop', {
     save: data => ipcRenderer.invoke('drive:save', data),
     open: id => ipcRenderer.invoke('drive:open', id),
     pdf: pdfId => ipcRenderer.invoke('drive:pdf', pdfId),
-    rename: data => ipcRenderer.invoke('drive:rename', data)
+    rename: data => ipcRenderer.invoke('drive:rename', data),
+    pickTest: () => ipcRenderer.invoke('drive:pickTest')
   }
 });
